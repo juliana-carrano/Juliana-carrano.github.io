@@ -1,0 +1,3418 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Diário de Bordo — Planejador de Viagem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Playfair+Display:wght@600;700&family=Merriweather:wght@400;700&family=Poppins:wght@400;500;600;700&family=Lora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  :root{
+    --ink:#1F2E45;
+    --ink-2:#2A3E5C;
+    --cream:#F6EFE2;
+    --cream-2:#EFE4CF;
+    --paper:#FFFFFF;
+    --brass:#C08A3E;
+    --brass-dark:#9C6B26;
+    --teal:#2F6B69;
+    --teal-dark:#204B49;
+    --rust:#9C4A2E;
+    --text:#2B2620;
+    --text-soft:#6B6355;
+    --line:rgba(31,46,69,0.16);
+    --shadow:0 8px 24px rgba(31,46,69,0.10);
+    --radius:14px;
+    --font-display:'Fraunces', serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{min-height:100vh;display:flex;flex-direction:column;}
+
+  /* ---------- Header / brand ---------- */
+  .brandbar{
+    background:var(--ink);
+    color:var(--cream);
+    padding:18px 24px 14px;
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:10px;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand .mark{
+    font-family:var(--font-display);font-weight:700;font-size:22px;letter-spacing:.3px;
+  }
+  .brand .tag{font-size:12px;color:#C7D2CB;font-family:var(--font-mono);letter-spacing:.5px;text-transform:uppercase;}
+  .brandbar .stat{font-family:var(--font-mono);font-size:12px;color:#D9CBA3;}
+
+  /* ---------- Trip tabs (boarding pass stubs) ---------- */
+  .tabsrow{
+    display:flex;gap:10px;padding:16px 24px 0;overflow-x:auto;
+    background:linear-gradient(var(--ink), var(--ink) 55%, transparent 55%);
+  }
+  .tabsrow::-webkit-scrollbar{height:6px;}
+  .tab{
+    position:relative;
+    flex:0 0 auto;
+    background:var(--cream-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-bottom:none;
+    border-radius:10px 10px 0 0;
+    padding:10px 18px 16px;
+    cursor:pointer;
+    font-size:13px;
+    min-width:150px;
+    transition:transform .12s ease, background .15s ease;
+  }
+  .tab .t-name{font-family:var(--font-display);font-weight:600;font-size:15px;display:block;}
+  .tab .t-dates{font-family:var(--font-mono);font-size:11px;color:var(--text-soft);}
+  .tab.active{
+    background:var(--paper);
+    transform:translateY(2px);
+    box-shadow:0 -2px 0 var(--brass) inset;
+  }
+  .tab.active:after{
+    content:"";position:absolute;left:0;right:0;bottom:-1px;height:6px;background:var(--paper);
+  }
+  .tab .notch{
+    position:absolute;bottom:-7px;width:14px;height:14px;border-radius:50%;background:var(--ink);
+  }
+  .tab .notch.l{left:-7px;} .tab .notch.r{right:-7px;}
+  .tab-new{
+    flex:0 0 auto;border:1.5px dashed rgba(246,239,226,0.55);color:var(--cream);
+    background:transparent;border-radius:10px 10px 0 0;padding:10px 16px;font-family:var(--font-body);
+    font-size:13px;cursor:pointer;min-width:120px;align-self:flex-start;
+  }
+  .tab-new:hover{background:rgba(246,239,226,0.08);}
+
+  /* ---------- Trip header band ---------- */
+  .tripband{
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    padding:18px 24px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;
+  }
+  .tripband h1{font-family:var(--font-display);font-weight:700;font-size:26px;margin:0;color:var(--ink);}
+  .tripband .dest{color:var(--teal-dark);font-family:var(--font-mono);font-size:12.5px;margin-top:2px;}
+  .stampbadge{
+    width:78px;height:78px;border-radius:50%;
+    border:2.5px dashed var(--rust);
+    color:var(--rust);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    transform:rotate(-8deg);
+    font-family:var(--font-mono);
+    flex:0 0 auto;
+  }
+  .stampbadge .n{font-size:22px;font-weight:600;line-height:1;}
+  .stampbadge .l{font-size:8.5px;letter-spacing:.5px;text-transform:uppercase;margin-top:2px;}
+
+  /* ---------- Section nav (luggage tag pills) ---------- */
+  .navpills{
+    display:flex;gap:8px;padding:14px 24px;flex-wrap:wrap;background:var(--cream);
+    border-bottom:1px solid var(--line);
+  }
+  .pill{
+    background:var(--paper);border:1px solid var(--line);border-radius:20px;
+    padding:8px 16px;font-size:13px;cursor:pointer;color:var(--text);
+    display:flex;align-items:center;gap:6px;transition:all .15s ease;
+  }
+  .pill:hover{border-color:var(--brass);}
+  .pill.active{background:var(--ink);color:var(--cream);border-color:var(--ink);}
+
+  /* ---------- Content ---------- */
+  .content{flex:1;padding:22px 24px 60px;max-width:1180px;width:100%;margin:0 auto;}
+  .card{
+    background:var(--paper);border-radius:var(--radius);padding:20px 22px;
+    box-shadow:var(--shadow);border:1px solid var(--line);margin-bottom:18px;position:relative;
+  }
+  .card:before,.card:after{
+    content:"";position:absolute;top:8px;width:6px;height:6px;border-radius:50%;background:var(--brass);opacity:.55;
+  }
+  .card:before{left:8px;} .card:after{right:8px;}
+  .card h2{font-family:var(--font-display);font-size:19px;margin:0 0 12px;color:var(--ink);font-weight:600;}
+  .card h3{font-family:var(--font-display);font-size:16px;margin:0 0 8px;color:var(--ink);font-weight:600;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  @media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+  label{font-size:12px;color:var(--text-soft);display:block;margin-bottom:4px;font-family:var(--font-body);}
+  input,select,textarea{
+    width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    font-family:var(--font-body);font-size:13.5px;background:var(--cream);color:var(--text);
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--brass);outline-offset:1px;}
+  textarea{resize:vertical;min-height:44px;}
+  .field{margin-bottom:10px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;}
+  .row > .field{flex:1;min-width:120px;}
+
+  .btn{
+    background:var(--ink);color:var(--cream);border:none;border-radius:8px;padding:9px 16px;
+    font-size:13px;cursor:pointer;font-family:var(--font-body);font-weight:600;transition:background .15s;
+  }
+  .btn:hover{background:var(--ink-2);}
+  .btn.brass{background:var(--brass);color:#2B2210;}
+  .btn.brass:hover{background:var(--brass-dark);color:var(--cream);}
+  .btn.teal{background:var(--teal);color:var(--cream);}
+  .btn.teal:hover{background:var(--teal-dark);}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
+  .btn.ghost:hover{border-color:var(--ink);}
+  .btn.danger{background:transparent;color:var(--rust);border:1px solid var(--rust);}
+  .btn.danger:hover{background:var(--rust);color:#fff;}
+  .btn.sm{padding:5px 10px;font-size:12px;}
+  .iconbtn{background:none;border:none;cursor:pointer;font-size:15px;color:var(--text-soft);padding:2px 6px;}
+  .iconbtn:hover{color:var(--rust);}
+
+  .empty{
+    text-align:center;padding:50px 20px;color:var(--text-soft);
+  }
+  .empty .big{font-size:40px;margin-bottom:10px;}
+
+  /* Itinerary */
+  .catchip{
+    display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:10px;background:var(--teal);color:#fff;
+    margin-right:6px;font-family:var(--font-mono);
+  }
+  .resbadge{
+    display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:10px;margin-right:6px;font-family:var(--font-mono);
+  }
+  .resbadge.pending{background:#F1DCC9;color:var(--rust);}
+  .resbadge.confirmed{background:#DCEAE7;color:var(--teal-dark);}
+  .item-actions{display:flex;gap:2px;}
+
+  /* Trello-style horizontal board: one scrollable column per day */
+  .board{display:flex;gap:14px;overflow-x:auto;padding:4px 4px 16px;align-items:flex-start;}
+  .board-col{
+    flex:0 0 296px;background:var(--cream-2);border-radius:14px;padding:12px;
+    display:flex;flex-direction:column;max-height:74vh;
+  }
+  .board-col-head{margin-bottom:8px;flex:0 0 auto;}
+  .board-col-head .d-title{font-family:var(--font-display);font-weight:700;color:var(--ink);font-size:15px;}
+  .board-col-head .d-sub{font-family:var(--font-mono);font-size:10.5px;color:var(--text-soft);display:block;margin-top:2px;}
+  .board-col-head select{width:100%;font-size:11.5px;padding:4px 6px;margin-top:6px;}
+  .board-col-count{font-family:var(--font-mono);font-size:10.5px;color:var(--text-soft);}
+  .board-col-body{display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding:2px 2px 4px;flex:1;min-height:20px;}
+  .board-card{
+    background:var(--paper);border-radius:10px;padding:9px 11px;box-shadow:0 2px 6px rgba(31,46,69,0.10);cursor:pointer;
+  }
+  .board-card:hover{box-shadow:0 4px 10px rgba(31,46,69,0.16);}
+  .board-card-time{font-family:var(--font-mono);font-size:11px;color:var(--teal-dark);font-weight:700;}
+  .board-card-time .end{color:var(--text-soft);font-weight:400;}
+  .board-card-title{font-weight:600;font-size:13px;margin-top:2px;line-height:1.25;}
+  .board-card-meta{font-size:10.5px;color:var(--text-soft);margin-top:4px;line-height:1.5;}
+  .board-card-actions{display:flex;gap:2px;justify-content:flex-end;margin-top:4px;}
+  .board-add-btn{margin-top:8px;flex:0 0 auto;width:100%;}
+
+  /* Bookings */
+  .booking-card{
+    border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  }
+  .booking-card .code{font-family:var(--font-mono);background:var(--cream-2);padding:2px 8px;border-radius:6px;font-size:12px;}
+
+  /* Map */
+  #mapview{height:440px;border-radius:12px;border:1px solid var(--line);}
+  .distlist{font-family:var(--font-mono);font-size:12.5px;line-height:1.9;}
+  .banner{
+    background:var(--brass);color:#2B2210;padding:8px 14px;border-radius:8px;font-size:13px;
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;
+  }
+
+  /* Currency / timezone */
+  .bigresult{font-family:var(--font-mono);font-size:26px;color:var(--ink);font-weight:600;}
+  .tzcard{background:var(--cream-2);border-radius:10px;padding:14px;text-align:center;}
+  .tzcard .time{font-family:var(--font-mono);font-size:24px;color:var(--ink);}
+  .tzcard .place{font-family:var(--font-display);font-weight:600;}
+  .tzcard .off{font-size:12px;color:var(--text-soft);}
+
+  /* checklist */
+  .checkrow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);}
+  .checkrow:last-child{border-bottom:none;}
+  .checkrow input[type=checkbox]{width:18px;height:18px;flex:0 0 auto;accent-color:var(--teal);}
+  .checkrow.done .label{text-decoration:line-through;color:var(--text-soft);}
+  .progress-wrap{background:var(--cream-2);border-radius:8px;height:8px;overflow:hidden;margin:8px 0 14px;}
+  .progress-bar{height:100%;background:var(--teal);transition:width .3s ease;}
+
+  /* budget */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);}
+  th{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;color:var(--text-soft);font-weight:600;}
+  td input{padding:5px 7px;font-size:13px;}
+  .totalrow td{font-weight:700;font-family:var(--font-mono);}
+  .over{color:var(--rust);}
+  .under{color:var(--teal-dark);}
+
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(31,46,69,0.55);display:flex;align-items:center;justify-content:center;
+    z-index:50;padding:20px;
+  }
+  .modal{background:var(--paper);border-radius:var(--radius);padding:24px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal h2{font-family:var(--font-display);margin-top:0;}
+  .weathergrid{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;}
+  .wday{background:var(--cream-2);border-radius:10px;padding:10px 12px;min-width:78px;text-align:center;flex:0 0 auto;}
+  .wday .d{font-size:11px;color:var(--text-soft);font-family:var(--font-mono);}
+  .wday .t{font-family:var(--font-mono);font-weight:600;font-size:14px;margin-top:4px;}
+  .note{font-size:12px;color:var(--text-soft);margin-top:8px;}
+  ::selection{background:var(--brass);color:#fff;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<datalist id="dl-all-currencies"></datalist>
+
+<script>
+/* =========================================================
+   DIÁRIO DE BORDO — Planejador de Viagem
+   ========================================================= */
+
+const TIMEZONES = [
+  ['America/Sao_Paulo','São Paulo / Rio de Janeiro'],
+  ['America/Noronha','Fernando de Noronha'],
+  ['America/New_York','Nova York / Orlando / Miami'],
+  ['America/Chicago','Chicago'],
+  ['America/Denver','Denver'],
+  ['America/Los_Angeles','Los Angeles'],
+  ['America/Anchorage','Anchorage (Alasca)'],
+  ['America/Toronto','Toronto'],
+  ['America/Vancouver','Vancouver'],
+  ['America/Mexico_City','Cidade do México'],
+  ['America/Bogota','Bogotá'],
+  ['America/Santiago','Santiago'],
+  ['America/Argentina/Buenos_Aires','Buenos Aires'],
+  ['Atlantic/Reykjavik','Reykjavik'],
+  ['Europe/Lisbon','Lisboa / Porto'],
+  ['Europe/Madrid','Madrid / Barcelona'],
+  ['Europe/London','Londres'],
+  ['Europe/Dublin','Dublin'],
+  ['Europe/Paris','Paris'],
+  ['Europe/Amsterdam','Amsterdã'],
+  ['Europe/Zurich','Zurique'],
+  ['Europe/Rome','Roma'],
+  ['Europe/Berlin','Berlim'],
+  ['Europe/Vienna','Viena'],
+  ['Europe/Athens','Atenas'],
+  ['Europe/Moscow','Moscou'],
+  ['Africa/Cairo','Cairo'],
+  ['Africa/Johannesburg','Joanesburgo'],
+  ['Asia/Jerusalem','Jerusalém'],
+  ['Asia/Istanbul','Istambul'],
+  ['Asia/Dubai','Dubai'],
+  ['Asia/Kolkata','Nova Deli / Mumbai'],
+  ['Asia/Bangkok','Bangkok'],
+  ['Asia/Jakarta','Jacarta'],
+  ['Asia/Singapore','Singapura'],
+  ['Asia/Hong_Kong','Hong Kong'],
+  ['Asia/Shanghai','Xangai / Pequim'],
+  ['Asia/Tokyo','Tóquio'],
+  ['Asia/Seoul','Seul'],
+  ['Australia/Sydney','Sydney'],
+  ['Pacific/Auckland','Auckland'],
+  ['America/Manaus','Manaus'],
+  ['America/Curacao','Curaçao'],
+];
+
+const CURRENCIES = ['BRL','USD','EUR','GBP','JPY','ARS','CLP','MXN','CAD','AUD','CHF','CNY','KRW','SGD','AED','ZAR'];
+
+
+const CATEGORY_ICONS = {
+  voo:'✈️', hospedagem:'🏨', refeicao:'🍽️', passeio:'🎢', transporte:'🚗', compras:'🛍️', outro:'📌'
+};
+const CATEGORY_LABELS = {
+  voo:'Voo', hospedagem:'Hospedagem', refeicao:'Refeição', passeio:'Passeio/Atração', transporte:'Transporte', compras:'Compras', outro:'Outro'
+};
+const CATEGORY_COLORS = {
+  voo:'#3C5B8A', hospedagem:'#C08A3E', refeicao:'#9C4A2E', passeio:'#2F6B69', transporte:'#6B7A3A', compras:'#8A4E7A', outro:'#6B6355'
+};
+const BOOKING_ICONS = { voo:'✈️', hotel:'🏨', carro:'🚗', ingresso:'🎟️', outro:'📄' };
+const BOOKING_LABELS = { voo:'Voo', hotel:'Hotel/Hospedagem', carro:'Carro', ingresso:'Ingresso/Evento', outro:'Outro' };
+
+const DEFAULT_DOCS = [
+  'Passaporte válido (mín. 6 meses)',
+  'Visto (se necessário)',
+  'Seguro viagem contratado',
+  'Carteira de vacinação',
+  'Reservas salvas offline',
+  'Carteira de motorista internacional',
+  'Cópia física e digital dos documentos',
+  'Contatos de emergência e apólice do seguro',
+  'Câmbio / dinheiro local sacado',
+];
+
+const DEFAULT_BUDGET_CATS = ['Hospedagem','Transporte','Alimentação','Passeios/Ingressos','Compras','Seguro viagem','Outros'];
+
+const TRIP_COLORS = ['#2F6B69','#C08A3E','#9C4A2E','#3C5B8A','#6B7A3A','#8A4E7A'];
+
+const DAY_COLORS = ['#2F6B69','#C08A3E','#9C4A2E','#3C5B8A','#6B7A3A','#8A4E7A','#4A7A9C','#B5722F'];
+
+/* ---------- App state ---------- */
+let tripsIndex = [];
+let currentTripId = null;
+let currentTrip = null;
+let activeSection = 'dashboard';
+let leafletMap = null;
+let mapMarkers = [];
+let mapPendingTarget = null; // {dayIndex,itemId}
+let mapSelectedDay = 0; // index, or -1 for overview
+let currencyLastResult = null;
+let storageReady = true;
+let hubClockInterval = null;
+let itemMiniMap = null;
+let itemMiniMarker = null;
+
+/* Leaflet's default marker icon references relative image paths that break depending on how
+   the CSS/JS were loaded; point them explicitly at the CDN so pins never show as broken images. */
+if(window.L){
+  delete L.Icon.Default.prototype._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  });
+}
+
+/* Small toast so storage failures are visible instead of only logged silently to the console. */
+function showToast(msg, isError){
+  let t = document.getElementById('app-toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'app-toast';
+    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;padding:10px 18px;border-radius:8px;font-family:var(--font-body,sans-serif);font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.25);max-width:90vw;text-align:center;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = isError ? '#9C4A2E' : '#1F2E45';
+  t.style.color = '#fff';
+  t.style.display = 'block';
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=>{ t.style.display='none'; }, 4500);
+}
+
+/* ---------- Storage helpers ---------- */
+async function storGet(key){
+  try{
+    const r = await window.storage.get(key, false);
+    return r ? JSON.parse(r.value) : null;
+  }catch(e){ return null; }
+}
+async function storSet(key, value){
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      await window.storage.set(key, JSON.stringify(value), false);
+      return true;
+    }catch(e){
+      console.error('storage set failed (tentativa '+(attempt+1)+')', e);
+      if(attempt===0) await new Promise(r=>setTimeout(r,500));
+    }
+  }
+  return false;
+}
+async function storDelete(key){
+  try{ await window.storage.delete(key, false); }catch(e){}
+}
+
+function uid(){ return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+function emptyTripData(){
+  return {
+    destinations: [],
+    itinerary: { days: [] },
+    bookings: [],
+    documents: DEFAULT_DOCS.map(label=>({id:uid(), label, done:false, dueDate:null, priority:null, notes:''})),
+    budget: { categories: DEFAULT_BUDGET_CATS.map(name=>({id:uid(), name, estimated:0, actual:0})) },
+    packing: { items: [], weatherByDest: {}, outfitsByDate: {} },
+    people: [],
+    expenses: [],
+    settlements: [],
+  };
+}
+
+/* Migrates older single-destination trips into the new destinations[] model,
+   and keeps the packing/weather shape consistent. Safe to call every load. */
+function ensureTripShape(data, meta){
+  if(!data.destinations || !data.destinations.length){
+    data.destinations = [{
+      id: uid(),
+      name: meta.destination || meta.name || 'Destino 1',
+      lat: meta.lat ?? null,
+      lng: meta.lng ?? null,
+      timezone: meta.timezone || 'America/Sao_Paulo',
+      currency: meta.currency || 'BRL',
+      startDate: meta.startDate,
+      endDate: meta.endDate,
+      color: TRIP_COLORS[0]
+    }];
+  }
+  if(!data.packing) data.packing = { items: [], weatherByDest: {}, outfitsByDate: {} };
+  if(!data.packing.weatherByDest){
+    data.packing.weatherByDest = {};
+    if(data.packing.weather){
+      data.packing.weatherByDest[data.destinations[0].id] = data.packing.weather;
+      delete data.packing.weather;
+    }
+  }
+  if(!data.packing.outfitsByDate) data.packing.outfitsByDate = {};
+  if(!data.itinerary) data.itinerary = { days: [] };
+  if(!data.people) data.people = [];
+  if(!data.expenses) data.expenses = [];
+  if(!data.settlements) data.settlements = [];
+  if(!data.bookings) data.bookings = [];
+  data.bookings.forEach(b=>{
+    if(!b.attachments){
+      b.attachments = b.hasFile ? [{id:b.id, name:b.fileName||'arquivo.pdf', type:b.fileType||'application/pdf'}] : [];
+      delete b.hasFile; delete b.fileName; delete b.fileType;
+    }
+  });
+  if(!data.documents) data.documents = [];
+  data.documents.forEach(d=>{
+    if(d.dueDate===undefined) d.dueDate = null;
+    if(d.priority===undefined) d.priority = null;
+    if(d.notes===undefined) d.notes = '';
+  });
+  assignDayDestinationsFor(data);
+  return data;
+}
+
+function buildDays(startDate, endDate, existingDays){
+  const days = [];
+  if(!startDate || !endDate) return days;
+  let d = new Date(startDate+'T00:00:00');
+  const end = new Date(endDate+'T00:00:00');
+  if(isNaN(d)||isNaN(end)||d>end) return existingDays||[];
+  const oldByDate = {};
+  (existingDays||[]).forEach(day=>{ oldByDate[day.date]=day; });
+  while(d<=end){
+    const iso = d.toISOString().slice(0,10);
+    days.push(oldByDate[iso] || {date:iso, items:[], destinationId:null});
+    d.setDate(d.getDate()+1);
+  }
+  return days;
+}
+
+function assignDayDestinationsFor(data){
+  const ds = data.destinations;
+  (data.itinerary.days||[]).forEach(day=>{
+    const stillValid = day.destinationId && ds.find(d=>d.id===day.destinationId);
+    if(stillValid) return;
+    const match = ds.find(d=> d.startDate && d.endDate && d.startDate<=day.date && day.date<=d.endDate);
+    day.destinationId = match ? match.id : (ds[0] ? ds[0].id : null);
+  });
+}
+function assignDayDestinations(){ assignDayDestinationsFor(currentTrip); }
+
+function recomputeTripRange(){
+  const meta = tripsIndex.find(x=>x.id===currentTripId);
+  const ds = currentTrip.destinations;
+  if(!meta || !ds.length) return;
+  const starts = ds.map(d=>d.startDate).filter(Boolean).sort();
+  const ends = ds.map(d=>d.endDate).filter(Boolean).sort();
+  if(starts.length) meta.startDate = starts[0];
+  if(ends.length) meta.endDate = ends[ends.length-1];
+  currentTrip.itinerary.days = buildDays(meta.startDate, meta.endDate, currentTrip.itinerary.days);
+  assignDayDestinations();
+}
+
+function fmtDateHuman(iso){
+  if(!iso) return '';
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('pt-BR', {weekday:'short', day:'2-digit', month:'short'});
+}
+function fmtDateShort(iso){
+  if(!iso) return '';
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+function escapeHtml(s){
+  return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371;
+  const dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function destColor(destId){
+  const i = currentTrip.destinations.findIndex(d=>d.id===destId);
+  return i>=0 ? currentTrip.destinations[i].color : TRIP_COLORS[0];
+}
+
+/* ---------- Init ---------- */
+let currencyRateCache = {}; // {"USD_BRL": {rate, date}} — persists across trips/sessions
+let ALL_CURRENCIES = null; // {code: full name} — every currency in the world, not just a shortlist
+
+async function loadAllCurrencies(){
+  const cached = await storGet('all-currencies-cache');
+  if(cached && cached.data && Object.keys(cached.data).length>20){
+    ALL_CURRENCIES = cached.data;
+    populateCurrencyDatalist();
+    return;
+  }
+  try{
+    const res = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json');
+    if(res.ok){
+      const data = await res.json();
+      if(data && Object.keys(data).length>20){
+        ALL_CURRENCIES = data;
+        await storSet('all-currencies-cache', {data});
+        populateCurrencyDatalist();
+        return;
+      }
+    }
+  }catch(e){ console.error('loadAllCurrencies falhou', e); }
+  // Não conseguiu buscar a lista completa — usa a lista curta original como último recurso
+  ALL_CURRENCIES = Object.fromEntries(CURRENCIES.map(c=>[c.toLowerCase(), c]));
+  populateCurrencyDatalist();
+}
+function populateCurrencyDatalist(){
+  const dl = document.getElementById('dl-all-currencies');
+  if(!dl || !ALL_CURRENCIES) return;
+  const entries = Object.entries(ALL_CURRENCIES).sort((a,b)=>a[0].localeCompare(b[0]));
+  dl.innerHTML = entries.map(([code,name])=>`<option value="${code.toUpperCase()}">${code.toUpperCase()} — ${escapeHtml(name)}</option>`).join('');
+}
+/* Free-text input + shared datalist, used everywhere a currency is picked, so any of the
+   ~200 world currencies (not just a short hardcoded list) can be typed and auto-completed. */
+function currencyInputHtml(id, selectedValue){
+  return `<input id="${id}" list="dl-all-currencies" value="${escapeHtml(selectedValue||'')}" placeholder="Ex: BRL, USD, EUR..." style="text-transform:uppercase;">`;
+}
+function readCurrencyInput(id){
+  const el = document.getElementById(id);
+  return el ? el.value.trim().toUpperCase() : '';
+}
+
+async function init(){
+  tripsIndex = await storGet('trips-index') || [];
+  currencyRateCache = await storGet('currency-rate-cache') || {};
+  loadAllCurrencies(); // não bloqueia o primeiro render; atualiza o datalist quando terminar
+  await loadTheme();
+  if(tripsIndex.length){
+    currentTripId = tripsIndex[0].id;
+    const meta = tripsIndex[0];
+    currentTrip = ensureTripShape(await storGet('trip-data:'+currentTripId) || emptyTripData(), meta);
+  }
+  render();
+}
+async function saveCurrencyCache(){ await storSet('currency-rate-cache', currencyRateCache); }
+
+/* ---------- Customizable color theme ---------- */
+const DEFAULT_THEME = { ink:'#1F2E45', cream:'#F6EFE2', brass:'#C08A3E', teal:'#2F6B69', rust:'#9C4A2E', fontDisplay:'fraunces', fontBody:'inter' };
+const THEME_PRESETS = [
+  {name:'Vintage viagem (padrão)', ink:'#1F2E45', cream:'#F6EFE2', brass:'#C08A3E', teal:'#2F6B69', rust:'#9C4A2E', fontDisplay:'fraunces', fontBody:'inter'},
+  {name:'Outono quente', ink:'#3B2A1E', cream:'#F5EDE1', brass:'#B5722F', teal:'#6B7A3A', rust:'#8A3B2A', fontDisplay:'merriweather', fontBody:'inter'},
+  {name:'Oceano', ink:'#123047', cream:'#EFF6F6', brass:'#2F8F8A', teal:'#1D5C6B', rust:'#B5533C', fontDisplay:'playfair', fontBody:'inter'},
+  {name:'Lavanda noturna', ink:'#181A26', cream:'#EDEAF5', brass:'#8C6FC9', teal:'#3E7C9C', rust:'#C4586B', fontDisplay:'playfair', fontBody:'lora'},
+  {name:'Tropical', ink:'#0F3D33', cream:'#FBF3E3', brass:'#E0A63A', teal:'#1F8A70', rust:'#D9542B', fontDisplay:'poppins-d', fontBody:'poppins-b'},
+];
+const FONT_OPTIONS_DISPLAY = [
+  {id:'fraunces', label:'Fraunces (padrão, clássica)', css:"'Fraunces', serif"},
+  {id:'playfair', label:'Playfair Display (elegante)', css:"'Playfair Display', serif"},
+  {id:'merriweather', label:'Merriweather (encorpada)', css:"'Merriweather', serif"},
+  {id:'poppins-d', label:'Poppins (moderna)', css:"'Poppins', sans-serif"},
+  {id:'georgia', label:'Georgia (do sistema, sem internet)', css:"Georgia, 'Times New Roman', serif"},
+];
+const FONT_OPTIONS_BODY = [
+  {id:'inter', label:'Inter (padrão)', css:"'Inter', sans-serif"},
+  {id:'poppins-b', label:'Poppins', css:"'Poppins', sans-serif"},
+  {id:'lora', label:'Lora (serifada)', css:"'Lora', serif"},
+  {id:'georgia-b', label:'Georgia (do sistema)', css:"Georgia, serif"},
+  {id:'system', label:'Sistema (Arial/Segoe/SF)', css:"-apple-system, 'Segoe UI', Roboto, Arial, sans-serif"},
+];
+let themePrefs = {...DEFAULT_THEME};
+function shadeColor(hex, percent){
+  hex = (hex||'#888888').replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex,16);
+  const amt = Math.round(255*percent/100);
+  let r = (num>>16) + amt, g = ((num>>8)&0xff) + amt, b = (num&0xff) + amt;
+  r = Math.max(0,Math.min(255,r)); g = Math.max(0,Math.min(255,g)); b = Math.max(0,Math.min(255,b));
+  return '#' + ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1);
+}
+function hexToRgba(hex, alpha){
+  hex = (hex||'#000000').replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex,16);
+  return `rgba(${(num>>16)&0xff},${(num>>8)&0xff},${num&0xff},${alpha})`;
+}
+function applyThemeValues(base){
+  themePrefs = {...base};
+  const root = document.documentElement.style;
+  root.setProperty('--ink', base.ink);
+  root.setProperty('--ink-2', shadeColor(base.ink, 12));
+  root.setProperty('--cream', base.cream);
+  root.setProperty('--cream-2', shadeColor(base.cream, -6));
+  root.setProperty('--brass', base.brass);
+  root.setProperty('--brass-dark', shadeColor(base.brass, -18));
+  root.setProperty('--teal', base.teal);
+  root.setProperty('--teal-dark', shadeColor(base.teal, -18));
+  root.setProperty('--rust', base.rust);
+  root.setProperty('--line', hexToRgba(base.ink, 0.16));
+  root.setProperty('--shadow', `0 8px 24px ${hexToRgba(base.ink,0.10)}`);
+  const fd = FONT_OPTIONS_DISPLAY.find(f=>f.id===base.fontDisplay) || FONT_OPTIONS_DISPLAY[0];
+  const fb = FONT_OPTIONS_BODY.find(f=>f.id===base.fontBody) || FONT_OPTIONS_BODY[0];
+  root.setProperty('--font-display', fd.css);
+  root.setProperty('--font-body', fb.css);
+}
+async function loadTheme(){
+  const saved = await storGet('theme-prefs-base');
+  applyThemeValues(saved || DEFAULT_THEME);
+}
+function openThemeModal(){
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>🎨 Aparência</h2>
+      <div class="note" style="margin-bottom:12px;">Personalize as cores e as fontes do app do seu jeito. A pré-visualização é ao vivo.</div>
+      <div class="grid2">
+        <div class="field"><label>Cor principal (cabeçalho e textos)</label><input type="color" id="th-ink" value="${themePrefs.ink}" oninput="previewTheme()" style="height:40px;padding:2px;"></div>
+        <div class="field"><label>Fundo</label><input type="color" id="th-cream" value="${themePrefs.cream}" oninput="previewTheme()" style="height:40px;padding:2px;"></div>
+        <div class="field"><label>Destaque 1 (dourado)</label><input type="color" id="th-brass" value="${themePrefs.brass}" oninput="previewTheme()" style="height:40px;padding:2px;"></div>
+        <div class="field"><label>Destaque 2 (verde-azulado)</label><input type="color" id="th-teal" value="${themePrefs.teal}" oninput="previewTheme()" style="height:40px;padding:2px;"></div>
+        <div class="field"><label>Alerta / avisos</label><input type="color" id="th-rust" value="${themePrefs.rust}" oninput="previewTheme()" style="height:40px;padding:2px;"></div>
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <div class="field"><label>Fonte dos títulos</label>
+          <select id="th-font-display" onchange="previewTheme()">
+            ${FONT_OPTIONS_DISPLAY.map(f=>`<option value="${f.id}" ${f.id===themePrefs.fontDisplay?'selected':''}>${f.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Fonte do texto</label>
+          <select id="th-font-body" onchange="previewTheme()">
+            ${FONT_OPTIONS_BODY.map(f=>`<option value="${f.id}" ${f.id===themePrefs.fontBody?'selected':''}>${f.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="note" style="margin:14px 0 6px;">Paletas prontas (cores + fontes combinadas):</div>
+      <div class="row">
+        ${THEME_PRESETS.map((p,i)=>`<button type="button" class="btn ghost sm" onclick="applyPreset(${i})">${escapeHtml(p.name)}</button>`).join('')}
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:18px;">
+        <button class="btn danger" onclick="resetTheme()">Restaurar padrão</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn ghost" onclick="cancelTheme()">Cancelar</button>
+          <button class="btn brass" onclick="saveThemeFromModal()">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function readThemeFromModal(){
+  return {
+    ink: document.getElementById('th-ink').value,
+    cream: document.getElementById('th-cream').value,
+    brass: document.getElementById('th-brass').value,
+    teal: document.getElementById('th-teal').value,
+    rust: document.getElementById('th-rust').value,
+    fontDisplay: document.getElementById('th-font-display').value,
+    fontBody: document.getElementById('th-font-body').value,
+  };
+}
+function previewTheme(){ applyThemeValues(readThemeFromModal()); }
+function applyPreset(i){
+  const p = THEME_PRESETS[i];
+  document.getElementById('th-ink').value = p.ink;
+  document.getElementById('th-cream').value = p.cream;
+  document.getElementById('th-brass').value = p.brass;
+  document.getElementById('th-teal').value = p.teal;
+  document.getElementById('th-rust').value = p.rust;
+  document.getElementById('th-font-display').value = p.fontDisplay;
+  document.getElementById('th-font-body').value = p.fontBody;
+  previewTheme();
+}
+async function saveThemeFromModal(){
+  const base = readThemeFromModal();
+  applyThemeValues(base);
+  await storSet('theme-prefs-base', base);
+  showToast('🎨 Cores salvas!', false);
+  closeModal();
+}
+async function cancelTheme(){
+  const saved = await storGet('theme-prefs-base');
+  applyThemeValues(saved || DEFAULT_THEME);
+  closeModal();
+}
+async function resetTheme(){
+  applyThemeValues(DEFAULT_THEME);
+  await storDelete('theme-prefs-base');
+  showToast('Cores restauradas ao padrão.', false);
+  closeModal();
+}
+
+async function saveTripsIndex(){
+  const ok = await storSet('trips-index', tripsIndex);
+  if(!ok) showToast('⚠️ Não foi possível salvar a lista de viagens agora. Tente novamente em instantes.', true);
+}
+async function saveCurrentTrip(){
+  if(!currentTripId) return;
+  const ok = await storSet('trip-data:'+currentTripId, currentTrip);
+  if(!ok) showToast('⚠️ Não foi possível salvar as últimas alterações. Tente novamente — se persistir, um anexo de reserva pode estar muito grande.', true);
+}
+
+/* ---------- Backup & restore ---------- */
+function openBackupModal(){
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>💾 Backup e restauração</h2>
+      <div class="note" style="margin-bottom:12px;">Tudo aqui fica salvo só neste navegador. Exporte um backup de vez em quando — e principalmente antes de trocar de dispositivo ou navegador — para nunca perder o que você planejou.</div>
+      <button class="btn brass" onclick="exportBackup()">⬇️ Exportar backup (.json)</button>
+      <div class="note" style="margin:16px 0 6px;">Importar um backup — as viagens do arquivo são adicionadas às que você já tem, nada é apagado:</div>
+      <input type="file" accept="application/json,.json" id="backup-file-input" onchange="handleBackupFileSelected(this)">
+      <div id="backup-import-msg" class="note" style="margin-top:8px;"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:18px;">
+        <button class="btn ghost" onclick="closeModal()">Fechar</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function exportBackup(){
+  showToast('Preparando backup...', false);
+  const backup = {version:1, exportedAt:new Date().toISOString(), tripsIndex, tripData:{}, files:{}};
+  for(const t of tripsIndex){
+    const data = await storGet('trip-data:'+t.id);
+    if(!data) continue;
+    backup.tripData[t.id] = data;
+    for(const b of (data.bookings||[])){
+      if(b.hasFile){
+        const f = await storGet('file:'+b.id);
+        if(f) backup.files[b.id] = f;
+      }
+    }
+  }
+  const blob = new Blob([JSON.stringify(backup)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `diario-de-bordo-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showToast('✅ Backup exportado! Guarde esse arquivo em local seguro.', false);
+}
+function handleBackupFileSelected(input){
+  const file = input.files[0];
+  if(!file) return;
+  document.getElementById('backup-import-msg').textContent = 'Importando...';
+  importBackupFromFile(file);
+}
+async function importBackupFromFile(file){
+  const msg = document.getElementById('backup-import-msg');
+  try{
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    if(!backup || !Array.isArray(backup.tripsIndex) || !backup.tripData){
+      msg.textContent = 'Esse arquivo não parece ser um backup válido deste app.';
+      return;
+    }
+    let imported = 0, lastNewId = null;
+    for(const tMeta of backup.tripsIndex){
+      const data = backup.tripData[tMeta.id];
+      if(!data) continue;
+      const newId = uid();
+      tripsIndex.push({...tMeta, id:newId});
+      for(const b of (data.bookings||[])){
+        if(b.hasFile && backup.files && backup.files[b.id]){
+          await storSet('file:'+b.id, backup.files[b.id]);
+        }
+      }
+      await storSet('trip-data:'+newId, data);
+      lastNewId = newId;
+      imported++;
+    }
+    if(imported===0){ msg.textContent = 'Nenhuma viagem encontrada nesse arquivo.'; return; }
+    await saveTripsIndex();
+    msg.textContent = `✅ ${imported} viagem${imported!==1?'ns':''} importada${imported!==1?'s':''} com sucesso!`;
+    showToast(`${imported} viagem(ns) importada(s)!`, false);
+    if(lastNewId){
+      currentTripId = lastNewId;
+      currentTrip = ensureTripShape(await storGet('trip-data:'+lastNewId), tripsIndex.find(t=>t.id===lastNewId));
+    }
+    closeModal();
+    render();
+  }catch(e){
+    console.error('importBackupFromFile falhou', e);
+    msg.textContent = 'Não foi possível ler esse arquivo. Verifique se é um .json exportado por este app.';
+  }
+}
+
+/* ---------- Trip CRUD ---------- */
+function openNewTripModal(){
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>✈️ Nova viagem</h2>
+      <div class="field"><label>Nome da viagem</label><input id="nt-name" placeholder="Ex: Alasca 2026"></div>
+      <div class="note" style="margin:-2px 0 10px;">Isso cria o primeiro destino da viagem — você pode adicionar mais destinos depois, cada um com seu próprio fuso, moeda e clima.</div>
+      <div class="field"><label>Destino</label><input id="nt-dest" placeholder="Ex: Juneau, Alasca"></div>
+      <div class="row">
+        <div class="field"><label>Data de início</label><input id="nt-start" type="date"></div>
+        <div class="field"><label>Data de fim</label><input id="nt-end" type="date"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Moeda local deste destino</label>
+          ${currencyInputHtml('nt-curr','BRL')}
+        </div>
+        <div class="field"><label>Fuso horário do destino</label>
+          <select id="nt-tz">${TIMEZONES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>
+        </div>
+      </div>
+      ${geoSectionHtml('nt', null, null)}
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+        <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn brass" onclick="createTrip()">Criar viagem</button>
+      </div>
+    </div>
+  </div>`;
+}
+function closeModal(){
+  if(itemMiniMap){ itemMiniMap.remove(); itemMiniMap=null; itemMiniMarker=null; }
+  document.getElementById('modal-root').innerHTML='';
+}
+
+/* Replacement for window.confirm(), which appears to be silently suppressed in this artifact's
+   sandbox (no allow-modals) — it was returning false immediately without ever prompting,
+   quietly blocking every delete/confirm action in the app. This appends its own overlay
+   directly to <body> (independent of #modal-root) so it stacks above whatever modal, if any,
+   is already open, without disturbing it. Usage: if(!(await showConfirm('...'))) return; */
+function showConfirm(message){
+  return new Promise(resolve=>{
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-bg';
+    overlay.style.zIndex = '300';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:420px;">
+        <p style="margin:0 0 20px;font-size:14.5px;line-height:1.5;">${escapeHtml(message)}</p>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <button type="button" class="btn ghost" id="confirm-cancel-btn">Cancelar</button>
+          <button type="button" class="btn danger" id="confirm-ok-btn">Confirmar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    function cleanup(val){ overlay.remove(); resolve(val); }
+    overlay.addEventListener('click', (e)=>{ if(e.target===overlay) cleanup(false); });
+    overlay.querySelector('#confirm-cancel-btn').addEventListener('click', ()=>cleanup(false));
+    overlay.querySelector('#confirm-ok-btn').addEventListener('click', ()=>cleanup(true));
+  });
+}
+
+/* Country -> city picker (works fully offline). prefix matches the ids used in each modal:
+   'nt' (new trip), 'et' unused, 'dt' (destination). Auto-fills lat/lng, timezone and the name field. */
+/* Geocodes any place name or full address (e.g. a hotel address) worldwide, trying two
+   independent free providers in sequence so a single provider hiccup doesn't block the search.
+   nameId is optional: if given and currently empty, it gets filled with the found place name. */
+async function geocodeInto(queryId, latId, lngId, msgId, nameId){
+  const q = document.getElementById(queryId).value.trim();
+  const msg = document.getElementById(msgId);
+  if(!q){ msg.textContent='Digite uma cidade ou endereço primeiro.'; return; }
+  msg.textContent = 'Buscando...';
+
+  // Provedor 1: Open-Meteo — ótimo para nomes de cidades
+  try{
+    const data = await fetchJsonRobust('https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&format=json&name='+encodeURIComponent(q));
+    if(data && data.results && data.results[0]){
+      const r = data.results[0];
+      document.getElementById(latId).value = r.latitude.toFixed(5);
+      document.getElementById(lngId).value = r.longitude.toFixed(5);
+      const label = [r.name,r.admin1,r.country].filter(Boolean).join(', ');
+      msg.textContent = '📍 Encontrado: '+label;
+      if(nameId){ const nEl=document.getElementById(nameId); if(nEl && !nEl.value.trim()) nEl.value = r.name; }
+      return;
+    }
+  }catch(e){ /* tenta o próximo provedor */ }
+
+  // Provedor 2: Photon/Komoot — melhor para endereços completos (ex: endereço de um hotel)
+  try{
+    const data = await fetchJsonRobust('https://photon.komoot.io/api/?limit=1&lang=pt&q='+encodeURIComponent(q));
+    const f = data && data.features && data.features[0];
+    if(f && f.geometry && f.geometry.coordinates){
+      const [lng,lat] = f.geometry.coordinates;
+      document.getElementById(latId).value = lat.toFixed(5);
+      document.getElementById(lngId).value = lng.toFixed(5);
+      const p = f.properties||{};
+      const label = [p.name,p.city,p.state,p.country].filter(Boolean).join(', ');
+      msg.textContent = '📍 Encontrado: '+(label||q);
+      if(nameId){ const nEl=document.getElementById(nameId); if(nEl && !nEl.value.trim()) nEl.value = p.name||p.city||q; }
+      return;
+    }
+  }catch(e){ /* segue para o botão do Google Maps abaixo */ }
+
+  msg.textContent = 'Não encontrado por aqui agora — use o botão "Abrir no Google Maps" abaixo para achar qualquer lugar do mundo e copiar as coordenadas de lá.';
+}
+/* Opens Google Maps' own (much larger) place database in a new tab so literally any city,
+   town, or address on Earth can be located — this is a plain navigation, not a fetch() call,
+   so it isn't affected by the network restrictions that limit our own geocoding providers. */
+/* Sets the Google Maps link's href right as the user clicks it (onclick runs before the
+   browser follows the link), so this is a genuine user-clicked <a> navigation — the same
+   pattern already used successfully for booking/activity links — rather than a programmatic
+   window.open() or a synthetic .click(), either of which can be silently blocked in sandboxed
+   environments. Returning false cancels the navigation (e.g. when the field is empty). */
+function prepareGoogleMapsLink(anchorEl, prefix){
+  const addrEl = document.getElementById(prefix+'-address');
+  const q = addrEl ? addrEl.value.trim() : '';
+  const msgEl = document.getElementById(prefix+'-geo-msg');
+  if(!q){ if(msgEl) msgEl.textContent = 'Digite o nome do lugar ou endereço primeiro.'; return false; }
+  anchorEl.href = 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q);
+  if(msgEl) msgEl.textContent = '🗺️ Abrindo o Google Maps numa nova aba...';
+  return true;
+}
+
+/* Location section reused by the new-trip and destination modals: free-text address/city
+   search (works anywhere, tries automatically first), a Google Maps shortcut for finding
+   literally any place on the planet, and manual lat/lng as the fallback that always works. */
+function geoSectionHtml(prefix, latVal, lngVal){
+  return `
+    <div class="note" style="margin:10px 0 6px;">📍 Digite qualquer cidade, ponto turístico ou endereço completo (por exemplo, o endereço de um hotel) — não há lista restrita, pode ser qualquer lugar do mundo.</div>
+    <div class="row">
+      <div class="field"><label>Cidade ou endereço</label><input id="${prefix}-address" placeholder="Ex: Orlando, FL — ou o endereço do hotel"></div>
+    </div>
+    <div class="row">
+      <button type="button" class="btn ghost sm" onclick="geocodeInto('${prefix}-address','${prefix}-lat','${prefix}-lng','${prefix}-geo-msg')">🔎 Tentar buscar automaticamente</button>
+      <a href="#" target="_blank" rel="noopener" class="btn ghost sm" style="text-decoration:none;display:inline-block;" onclick="return prepareGoogleMapsLink(this,'${prefix}')">🗺️ Abrir no Google Maps</a>
+    </div>
+    <div id="${prefix}-geo-msg" class="note"></div>
+    <div class="note" style="margin-top:6px;">Se abrir o Google Maps: toque e segure (ou clique com o botão direito) no local certo, copie as coordenadas e cole nos campos abaixo.</div>
+    <div class="row" style="margin-top:8px;">
+      <div class="field"><label>Latitude</label><input id="${prefix}-lat" type="number" step="any" value="${latVal!=null?latVal:''}"></div>
+      <div class="field"><label>Longitude</label><input id="${prefix}-lng" type="number" step="any" value="${lngVal!=null?lngVal:''}"></div>
+    </div>
+  `;
+}
+
+async function createTrip(){
+  const name = document.getElementById('nt-name').value.trim();
+  const dest = document.getElementById('nt-dest').value.trim();
+  const start = document.getElementById('nt-start').value;
+  const end = document.getElementById('nt-end').value;
+  const curr = document.getElementById('nt-curr').value.trim().toUpperCase();
+  const tz = document.getElementById('nt-tz').value;
+  const lat = parseFloat(document.getElementById('nt-lat').value);
+  const lng = parseFloat(document.getElementById('nt-lng').value);
+  if(!name || !start || !end){ showToast('Preencha ao menos nome e as datas.', true); return; }
+  const id = uid();
+  tripsIndex.push({id, name, startDate:start, endDate:end, currency:curr});
+  await saveTripsIndex();
+  const data = emptyTripData();
+  data.destinations = [{
+    id:uid(), name:dest||name, lat:isNaN(lat)?null:lat, lng:isNaN(lng)?null:lng,
+    timezone:tz, currency:curr, startDate:start, endDate:end, color:TRIP_COLORS[0]
+  }];
+  data.itinerary.days = buildDays(start,end,[]);
+  assignDayDestinationsFor(data);
+  await storSet('trip-data:'+id, data);
+  currentTripId = id; currentTrip = data; activeSection='dashboard';
+  closeModal();
+  render();
+}
+
+async function switchTrip(id){
+  currentTripId = id;
+  const meta = tripsIndex.find(x=>x.id===id);
+  currentTrip = ensureTripShape(await storGet('trip-data:'+id) || emptyTripData(), meta);
+  activeSection='dashboard';
+  render();
+}
+
+async function deleteCurrentTrip(){
+  if(!(await showConfirm('Apagar esta viagem e todos os dados dela? Essa ação não pode ser desfeita.'))) return;
+  for(const b of currentTrip.bookings){ if(b.hasFile) await storDelete('file:'+b.id); }
+  tripsIndex = tripsIndex.filter(t=>t.id!==currentTripId);
+  await storDelete('trip-data:'+currentTripId);
+  await saveTripsIndex();
+  if(tripsIndex.length){ await switchTrip(tripsIndex[0].id); }
+  else{ currentTripId=null; currentTrip=null; render(); }
+}
+
+function openEditTripModal(){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>✏️ Editar viagem</h2>
+      <div class="field"><label>Nome da viagem</label><input id="et-name" value="${escapeHtml(t.name)}"></div>
+      <div class="field"><label>Moeda de referência (orçamento e divisão de despesas)</label>
+        ${currencyInputHtml('et-curr', t.currency)}
+      </div>
+      <div class="note">As datas da viagem (${fmtDateShort(t.startDate)} → ${fmtDateShort(t.endDate)}) são calculadas automaticamente a partir dos destinos. Fusos, moedas locais e coordenadas de cada trecho ficam na aba <b>🌍 Destinos</b>.</div>
+      <button class="btn ghost sm" style="margin-top:10px;" onclick="closeModal(); duplicateTrip();">📋 Duplicar esta viagem (usar como modelo)</button>
+      <div style="display:flex;justify-content:space-between;margin-top:18px;">
+        <button class="btn danger" onclick="closeModal(); deleteCurrentTrip();">🗑️ Apagar viagem</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+          <button class="btn brass" onclick="saveEditTrip()">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+async function saveEditTrip(){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  t.name = document.getElementById('et-name').value.trim() || t.name;
+  t.currency = document.getElementById('et-curr').value.trim().toUpperCase();
+  await saveTripsIndex();
+  await saveCurrentTrip();
+  closeModal();
+  render();
+}
+/* Duplicates the current trip as a starting template for a future one: keeps destinations,
+   itinerary, bookings (with their attachments), documents and budget categories, but resets
+   things that are specific to an actual past trip (expenses, settlements, weather cache, and
+   done/actual progress) so it starts fresh. */
+async function duplicateTrip(){
+  const orig = tripsIndex.find(x=>x.id===currentTripId);
+  const origData = currentTrip;
+  showToast('Duplicando viagem...', false);
+  const newId = uid();
+  const destIdMap = {};
+  const newDestinations = origData.destinations.map(d=>{
+    const newDid = uid();
+    destIdMap[d.id] = newDid;
+    return {...d, id:newDid};
+  });
+  const newDays = origData.itinerary.days.map(day=>({
+    date: day.date,
+    destinationId: destIdMap[day.destinationId] || (newDestinations[0]?newDestinations[0].id:null),
+    items: day.items.map(it=>({...it, id:uid()})),
+  }));
+  const newBookings = [];
+  for(const b of (origData.bookings||[])){
+    const newBid = uid();
+    const nb = {...b, id:newBid, attachments:[]};
+    for(const a of (b.attachments||[])){
+      const f = await storGet('file:'+a.id);
+      if(f){
+        const newAid = uid();
+        await storSet('file:'+newAid, f);
+        nb.attachments.push({id:newAid, name:a.name, type:a.type});
+      }
+    }
+    newBookings.push(nb);
+  }
+  const newDocuments = origData.documents.map(d=>({...d, id:uid(), done:false}));
+  const newBudgetCats = origData.budget.categories.map(cat=>({...cat, id:uid(), actual:0}));
+  const newPeople = origData.people.map(p=>({...p, id:uid()}));
+  const newPacking = { items: origData.packing.items.filter(i=>!i.auto).map(i=>({...i, id:uid(), done:false})), weatherByDest:{} };
+
+  const newData = {
+    destinations: newDestinations,
+    itinerary: { days: newDays },
+    bookings: newBookings,
+    documents: newDocuments,
+    budget: { categories: newBudgetCats },
+    packing: newPacking,
+    people: newPeople,
+    expenses: [],
+    settlements: [],
+  };
+  tripsIndex.push({...orig, id:newId, name: orig.name+' (cópia)'});
+  await saveTripsIndex();
+  await storSet('trip-data:'+newId, newData);
+  currentTripId = newId;
+  currentTrip = newData;
+  activeSection = 'dashboard';
+  showToast('✅ Viagem duplicada! Ajuste as datas na aba Destinos se precisar.', false);
+  render();
+}
+
+/* ---------- Destinations CRUD ---------- */
+function openDestinationModal(id){
+  const editing = id ? currentTrip.destinations.find(d=>d.id===id) : null;
+  const newId = editing ? editing.id : uid();
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>${editing?'✏️ Editar destino':'+ Novo destino'}</h2>
+      <div class="field"><label>Nome do destino</label><input id="dt-name" placeholder="Ex: Orlando, EUA" value="${editing?escapeHtml(editing.name):''}"></div>
+      <div class="row">
+        <div class="field"><label>Chegada neste destino</label><input id="dt-start" type="date" value="${editing?editing.startDate:''}"></div>
+        <div class="field"><label>Saída deste destino</label><input id="dt-end" type="date" value="${editing?editing.endDate:''}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Moeda local</label>${currencyInputHtml('dt-curr', editing?editing.currency:'BRL')}</div>
+        <div class="field"><label>Fuso horário</label><select id="dt-tz">${TIMEZONES.map(([v,l])=>`<option value="${v}" ${editing&&editing.timezone===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      </div>
+      <div class="note" style="margin-bottom:6px;">Defina a localização deste destino:</div>
+      ${geoSectionHtml('dt', editing&&editing.lat!=null?editing.lat:null, editing&&editing.lng!=null?editing.lng:null)}
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+        <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn brass" onclick="saveDestination('${newId}')">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function saveDestination(id){
+  const name = document.getElementById('dt-name').value.trim();
+  const start = document.getElementById('dt-start').value;
+  const end = document.getElementById('dt-end').value;
+  const curr = document.getElementById('dt-curr').value.trim().toUpperCase();
+  const tz = document.getElementById('dt-tz').value;
+  const lat = parseFloat(document.getElementById('dt-lat').value);
+  const lng = parseFloat(document.getElementById('dt-lng').value);
+  if(!name || !start || !end){ showToast('Preencha ao menos o nome e as datas deste destino.', true); return; }
+  let dest = currentTrip.destinations.find(d=>d.id===id);
+  if(!dest){
+    dest = {id, color: TRIP_COLORS[currentTrip.destinations.length % TRIP_COLORS.length]};
+    currentTrip.destinations.push(dest);
+  }
+  Object.assign(dest, {name, startDate:start, endDate:end, currency:curr, timezone:tz, lat:isNaN(lat)?null:lat, lng:isNaN(lng)?null:lng});
+  recomputeTripRange();
+  await saveTripsIndex();
+  await saveCurrentTrip();
+  closeModal();
+  render();
+}
+async function removeDestination(id){
+  if(currentTrip.destinations.length<=1){ showToast('A viagem precisa de ao menos um destino.', true); return; }
+  if(!(await showConfirm('Remover este destino? Os dias do roteiro ligados a ele passam a usar outro destino automaticamente.'))) return;
+  currentTrip.destinations = currentTrip.destinations.filter(d=>d.id!==id);
+  currentTrip.itinerary.days.forEach(day=>{ if(day.destinationId===id) day.destinationId=null; });
+  if(currentTrip.packing.weatherByDest) delete currentTrip.packing.weatherByDest[id];
+  recomputeTripRange();
+  await saveTripsIndex();
+  await saveCurrentTrip();
+  render();
+}
+
+/* ---------- Nav ---------- */
+function setSection(s){
+  if(hubClockInterval){ clearInterval(hubClockInterval); hubClockInterval=null; }
+  activeSection=s; render();
+}
+
+/* ---------- Render root ---------- */
+function render(){
+  const app = document.getElementById('app');
+  if(!tripsIndex.length){
+    app.innerHTML = `
+      <div class="brandbar">
+        <div class="brand"><span class="mark">🧭 Diário de Bordo</span><span class="tag">Planejador de viagem</span></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="btn ghost sm" onclick="openThemeModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">🎨 Aparência</button>
+          <button class="btn ghost sm" onclick="openBackupModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">💾 Backup</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card empty">
+          <div class="big">🗺️</div>
+          <h2>Nenhuma viagem por aqui ainda</h2>
+          <p>Crie sua primeira viagem para começar a planejar roteiro, reservas, mapa, câmbio, mala e orçamento — tudo num só lugar.</p>
+          <button class="btn brass" onclick="openNewTripModal()">+ Nova viagem</button>
+          <div class="note" style="margin-top:14px;">Já tem um backup exportado antes? <a href="#" onclick="openBackupModal();return false;" style="color:var(--teal-dark);">Importe aqui</a>.</div>
+        </div>
+      </div>
+      <div id="modal-root"></div>
+    `;
+    return;
+  }
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  const days = daysUntil(t.startDate);
+  app.innerHTML = `
+    <div class="brandbar">
+      <div class="brand"><span class="mark">🧭 Diário de Bordo</span><span class="tag">Planejador de viagem</span></div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div class="stat">${tripsIndex.length} viagem${tripsIndex.length>1?'ns':''} salva${tripsIndex.length>1?'s':''}</div>
+        <button class="btn ghost sm" onclick="openThemeModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">🎨 Aparência</button>
+        <button class="btn ghost sm" onclick="openBackupModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">💾 Backup</button>
+      </div>
+    </div>
+    <div class="tabsrow">
+      ${tripsIndex.map(tr=>`
+        <div class="tab ${tr.id===currentTripId?'active':''}" onclick="switchTrip('${tr.id}')">
+          <span class="t-name">${escapeHtml(tr.name)}</span>
+          <span class="t-dates">${fmtDateShort(tr.startDate)} – ${fmtDateShort(tr.endDate)}</span>
+          ${tr.id===currentTripId? '<span class="notch l"></span><span class="notch r"></span>' : ''}
+        </div>`).join('')}
+      <button class="tab-new" onclick="openNewTripModal()">+ Nova viagem</button>
+    </div>
+    <div class="tripband">
+      <div>
+        <h1>${escapeHtml(t.name)}</h1>
+        <div class="dest">📍 ${currentTrip.destinations.map(d=>escapeHtml(d.name)).join(' → ')} · ${fmtDateShort(t.startDate)} → ${fmtDateShort(t.endDate)}${currentTrip.destinations.length===1?' · '+currentTrip.destinations[0].currency:''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div class="stampbadge"><span class="n">${days>=0?days:'—'}</span><span class="l">${days>=0?'dias':'em curso'}</span></div>
+        <button class="btn ghost sm" onclick="openEditTripModal()">✏️ Editar</button>
+      </div>
+    </div>
+    <div class="navpills">
+      ${navPill('dashboard','🏠','Painel')}
+      ${navPill('destinations','🌍','Destinos')}
+      ${navPill('itinerary','🗓️','Roteiro')}
+      ${navPill('bookings','🎫','Reservas')}
+      ${navPill('map','🗺️','Mapa')}
+      ${navPill('currency','💱','Câmbio & Fuso')}
+      ${navPill('packing','🧳','Mala & Clima')}
+      ${navPill('documents','📋','Documentos')}
+      ${navPill('budget','💰','Orçamento')}
+      ${navPill('splitting','🤝','Divisão')}
+    </div>
+    <div class="content" id="content"></div>
+    <div id="modal-root"></div>
+  `;
+  renderSection();
+}
+function navPill(key,icon,label){
+  return `<div class="pill ${activeSection===key?'active':''}" onclick="setSection('${key}')">${icon} ${label}</div>`;
+}
+function daysUntil(dateIso){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const d = new Date(dateIso+'T00:00:00');
+  return Math.round((d-now)/86400000);
+}
+
+function renderSection(){
+  const c = document.getElementById('content');
+  if(!c) return;
+  if(activeSection==='dashboard') return renderDashboard(c);
+  if(activeSection==='destinations') return renderDestinations(c);
+  if(activeSection==='itinerary') return renderItinerary(c);
+  if(activeSection==='bookings') return renderBookings(c);
+  if(activeSection==='map') return renderMapSection(c);
+  if(activeSection==='currency') return renderCurrencyTz(c);
+  if(activeSection==='packing') return renderPacking(c);
+  if(activeSection==='documents') return renderDocuments(c);
+  if(activeSection==='budget') return renderBudget(c);
+  if(activeSection==='splitting') return renderSplitting(c);
+}
+
+/* ================= DESTINATIONS ================= */
+function renderDestinations(c){
+  const ds = currentTrip.destinations;
+  c.innerHTML = `
+    <div class="card">
+      <h2>🌍 Destinos desta viagem</h2>
+      <div class="note" style="margin-bottom:10px;">Viagens com mais de um destino podem ter fuso horário, moeda local e clima diferentes por trecho. As datas gerais da viagem e os dias do roteiro são recalculados automaticamente a partir daqui.</div>
+      <button class="btn brass" style="margin-bottom:14px;" onclick="openDestinationModal()">+ Adicionar destino</button>
+      ${ds.map(d=>`
+        <div class="booking-card" style="border-left:4px solid ${d.color};">
+          <div>
+            <div style="font-weight:600;">${escapeHtml(d.name)}</div>
+            <div class="item-meta">${fmtDateShort(d.startDate)} → ${fmtDateShort(d.endDate)} · 💰 ${d.currency} · 🕐 ${(TIMEZONES.find(z=>z[0]===d.timezone)||[,d.timezone])[1]}</div>
+            <div class="item-meta">${(d.lat!=null && d.lng!=null) ? `📍 ${d.lat.toFixed(2)}, ${d.lng.toFixed(2)}` : 'coordenadas não definidas'}</div>
+          </div>
+          <div class="item-actions">
+            <button class="iconbtn" onclick="openDestinationModal('${d.id}')">✏️</button>
+            <button class="iconbtn" onclick="removeDestination('${d.id}')">🗑️</button>
+          </div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+/* ================= DASHBOARD ================= */
+const BUDGET_CHART_COLORS = ['#2F6B69','#C08A3E','#9C4A2E','#3C5B8A','#6B7A3A','#8A4E7A','#4A7A9C','#B5722F','#6B6355','#7A3A5A'];
+function renderBudgetPieHtml(cats, currency){
+  const total = cats.reduce((s,c)=>s+(+c.actual||0),0);
+  if(total<=0){
+    return `<div class="note" style="margin-bottom:16px;">Ainda não há gastos reais lançados no orçamento para montar o gráfico.</div>`;
+  }
+  let acc = 0;
+  const stops = cats.filter(c=>(+c.actual||0)>0).map((c,i)=>{
+    const pct = (+c.actual||0)/total*100;
+    const start = acc; acc += pct;
+    return `${BUDGET_CHART_COLORS[i%BUDGET_CHART_COLORS.length]} ${start}% ${acc}%`;
+  });
+  const legend = cats.filter(c=>(+c.actual||0)>0).map((c,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:4px;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${BUDGET_CHART_COLORS[i%BUDGET_CHART_COLORS.length]};flex:0 0 auto;"></span>
+      <span>${escapeHtml(c.name)} — ${currency} ${(+c.actual).toFixed(2)} (${((+c.actual/total)*100).toFixed(0)}%)</span>
+    </div>`).join('');
+  return `
+    <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin-bottom:18px;">
+      <div style="width:150px;height:150px;border-radius:50%;background:conic-gradient(${stops.join(', ')});flex:0 0 auto;"></div>
+      <div style="flex:1;min-width:180px;">
+        <div class="note" style="margin-bottom:6px;">Gastos reais por categoria — total ${currency} ${total.toFixed(2)}</div>
+        ${legend}
+      </div>
+    </div>
+  `;
+}
+function computeTripStats(){
+  let totalKm = 0;
+  currentTrip.itinerary.days.forEach(day=>{
+    const pts = day.items.filter(it=>it.lat!=null&&it.lng!=null).sort((a,b)=>(a.timeStart||a.time||'99:99').localeCompare(b.timeStart||b.time||'99:99'));
+    for(let i=0;i<pts.length-1;i++) totalKm += haversine(pts[i].lat,pts[i].lng,pts[i+1].lat,pts[i+1].lng);
+  });
+  const hubs = currentTrip.destinations.filter(d=>d.lat!=null&&d.lng!=null).slice().sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||''));
+  for(let i=0;i<hubs.length-1;i++) totalKm += haversine(hubs[i].lat,hubs[i].lng,hubs[i+1].lat,hubs[i+1].lng);
+  return {totalKm};
+}
+function renderTripStatsHtml(t){
+  const stats = computeTripStats();
+  const tripDays = currentTrip.itinerary.days.length;
+  const totalItems = currentTrip.itinerary.days.reduce((s,d)=>s+d.items.length,0);
+  const actTotal = currentTrip.budget.categories.reduce((s,b)=>s+(+b.actual||0),0);
+  const avgPerDay = tripDays>0 ? actTotal/tripDays : 0;
+  const reservationsPending = currentTrip.itinerary.days.reduce((s,d)=>s+d.items.filter(it=>it.needsReservation && !it.reservationConfirmed).length,0);
+  return `
+    <div class="grid3">
+      <div style="text-align:center;">
+        <div style="font-family:var(--font-mono);font-size:20px;color:var(--ink);">${stats.totalKm.toFixed(0)} km</div>
+        <div class="note">percorridos (estimado pelos pontos marcados no mapa)</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--font-mono);font-size:20px;color:var(--ink);">${t.currency} ${avgPerDay.toFixed(2)}</div>
+        <div class="note">gasto médio por dia</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--font-mono);font-size:20px;color:var(--ink);">${currentTrip.destinations.length} / ${tripDays} / ${totalItems}</div>
+        <div class="note">destinos / dias / atividades</div>
+      </div>
+    </div>
+    ${reservationsPending>0?`<div class="note" style="margin-top:12px;">🎫 ${reservationsPending} atividade${reservationsPending!==1?'s':''} ainda precisa${reservationsPending!==1?'m':''} de reserva confirmada.</div>`:''}
+  `;
+}
+/* Finds the itinerary day matching today's date, if the trip is currently underway. */
+function findTodayDayIndex(){
+  const todayIso = new Date().toISOString().slice(0,10);
+  return currentTrip.itinerary.days.findIndex(d=>d.date===todayIso);
+}
+/* Bookings whose check-in or check-out falls within the next 3 days (including today). */
+function upcomingBookingAlerts(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const alerts = [];
+  currentTrip.bookings.forEach(b=>{
+    [['checkin','Check-in'],['checkout','Check-out']].forEach(([field,label])=>{
+      const dateStr = b[field];
+      if(!dateStr) return;
+      const d = new Date(dateStr+'T00:00:00');
+      const diff = Math.round((d-today)/86400000);
+      if(diff>=0 && diff<=3) alerts.push({booking:b, label, date:dateStr, diff});
+    });
+  });
+  return alerts.sort((a,b)=>a.diff-b.diff);
+}
+function renderDashboard(c){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  const totalItems = currentTrip.itinerary.days.reduce((s,d)=>s+d.items.length,0);
+  const docsTotal = currentTrip.documents.length;
+  const docsDone = currentTrip.documents.filter(d=>d.done).length;
+  const bud = currentTrip.budget.categories;
+  const estTotal = bud.reduce((s,b)=>s+(+b.estimated||0),0);
+  const actTotal = bud.reduce((s,b)=>s+(+b.actual||0),0);
+  const days = daysUntil(t.startDate);
+  const countdownMsg = days>0 ? `Faltam <b>${days}</b> dias para embarcar ✈️` :
+    (days===0 ? 'A viagem começa hoje! 🎉' : (daysUntil(t.endDate)>=0 ? 'Você está viajando agora! 🌍' : 'Viagem já concluída ✔️'));
+  const todayIdx = findTodayDayIndex();
+  const bookingAlerts = upcomingBookingAlerts();
+
+  c.innerHTML = `
+    ${todayIdx>=0 ? `
+    <div class="card">
+      <h2>📅 Hoje — Dia ${todayIdx+1}</h2>
+      <div class="board" style="padding:0;margin:0;">
+        ${renderDayColumn(currentTrip.itinerary.days[todayIdx], todayIdx)}
+      </div>
+    </div>` : ''}
+    ${bookingAlerts.length>0 ? `
+    <div class="card">
+      <h2>🔔 Check-ins e check-outs próximos</h2>
+      ${bookingAlerts.map(a=>`
+        <div class="booking-card">
+          <div class="item-meta" style="font-size:14px;color:var(--text);">
+            <b>${BOOKING_ICONS[a.booking.type]||'📄'} ${escapeHtml(a.booking.name)}</b> — ${a.label} ${a.diff===0?'<b>hoje</b>':a.diff===1?'<b>amanhã</b>':`em <b>${a.diff} dias</b>`} (${fmtDateShort(a.date)})
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+    <div class="grid2">
+      <div class="card">
+        <h2>⏳ Contagem regressiva</h2>
+        <p style="font-size:16px;">${countdownMsg}</p>
+        <div class="note">De ${fmtDateHuman(t.startDate)} até ${fmtDateHuman(t.endDate)} · ${currentTrip.destinations.length} destino${currentTrip.destinations.length!==1?'s':''}: ${currentTrip.destinations.map(d=>escapeHtml(d.name)).join(', ')}</div>
+      </div>
+      <div class="card">
+        <h3>📋 Documentos</h3>
+        <div class="progress-wrap"><div class="progress-bar" style="width:${docsTotal?Math.round(docsDone/docsTotal*100):0}%"></div></div>
+        <div class="note">${docsDone} de ${docsTotal} concluídos</div>
+      </div>
+    </div>
+    <div class="grid3">
+      <div class="card">
+        <h3>🗓️ Roteiro</h3>
+        <p style="font-family:var(--font-mono);font-size:22px;margin:4px 0;">${totalItems}</p>
+        <div class="note">atividades planejadas em ${currentTrip.itinerary.days.length} dias</div>
+      </div>
+      <div class="card">
+        <h3>🎫 Reservas</h3>
+        <p style="font-family:var(--font-mono);font-size:22px;margin:4px 0;">${currentTrip.bookings.length}</p>
+        <div class="note">reservas registradas</div>
+      </div>
+      <div class="card">
+        <h3>💰 Orçamento</h3>
+        <p style="font-family:var(--font-mono);font-size:18px;margin:4px 0;" class="${actTotal>estTotal?'over':'under'}">${t.currency} ${actTotal.toFixed(2)} <span style="font-size:12px;color:var(--text-soft);">/ ${estTotal.toFixed(2)} previstos</span></p>
+        <div class="note">${actTotal>estTotal? 'acima do previsto ⚠️' : 'dentro do previsto ✔️'}</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📊 Visão geral & análise</h2>
+      ${renderBudgetPieHtml(bud, t.currency)}
+      ${renderTripStatsHtml(t)}
+    </div>
+    <div class="card">
+      <h2>🧭 Atalhos</h2>
+      <div class="row">
+        <button class="btn teal" onclick="setSection('itinerary')">Planejar roteiro</button>
+        <button class="btn teal" onclick="setSection('bookings')">Adicionar reserva</button>
+        <button class="btn teal" onclick="setSection('map')">Ver no mapa</button>
+        <button class="btn teal" onclick="setSection('packing')">Ver clima e mala</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📤 Exportações</h2>
+      <div class="note" style="margin-bottom:10px;">Leve o planejamento para fora do app — sem precisar de internet para funcionar.</div>
+      <div class="row">
+        <button class="btn brass" onclick="exportIcs()">📅 Exportar roteiro (.ics)</button>
+        <button class="btn brass" onclick="exportSummary()">📄 Exportar resumo (PDF)</button>
+      </div>
+      <div class="note" style="margin-top:8px;">O .ics importa o roteiro dia a dia no Google Calendar, Apple Calendar, Outlook etc. O resumo gera um arquivo que você abre no navegador e salva como PDF (Ctrl/Cmd+P) — com roteiro, reservas, orçamento e saldos das despesas divididas.</div>
+    </div>
+  `;
+}
+
+/* ================= EXPORTS (.ics calendar + printable HTML/PDF summary) ================= */
+function icsEscape(s){
+  return (s||'').toString().replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+function triggerDownload(filename, content, mime){
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function csvEscape(val){
+  val = (val===null||val===undefined) ? '' : String(val);
+  if(/[",\n]/.test(val)) val = '"' + val.replace(/"/g,'""') + '"';
+  return val;
+}
+function exportExpensesCsv(){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  if(currentTrip.expenses.length===0 && currentTrip.settlements.length===0){
+    showToast('Ainda não há despesas ou pagamentos para exportar.', true);
+    return;
+  }
+  const rows = [['Tipo','Descrição','Categoria','Data','Moeda','Valor','Valor em '+refCurrency(),'Pago por','Dividido entre / Para quem','Notas']];
+  currentTrip.expenses.forEach(e=>{
+    const payers = (e.paidBy||[]).map(p=>`${personName(p.personId)} (${(+p.amount).toFixed(2)})`).join('; ');
+    const among = (e.splitAmong||[]).map(s=>`${personName(s.personId)} (${(+s.amount).toFixed(2)})`).join('; ');
+    rows.push(['Despesa', e.description||'', e.category||'', e.date||'', e.currency||'', (+e.amount||0).toFixed(2), (+e.amountRef||0).toFixed(2), payers, among, e.notes||'']);
+  });
+  currentTrip.settlements.forEach(s=>{
+    rows.push(['Pagamento', `${personName(s.from)} pagou ${personName(s.to)}`, '', s.date||'', s.currency||'', (+s.amount||0).toFixed(2), (+s.amountRef||0).toFixed(2), personName(s.from), personName(s.to), s.note||'']);
+  });
+  const csv = rows.map(r=>r.map(csvEscape).join(',')).join('\r\n');
+  const filename = `despesas-${(t.name||'viagem').toLowerCase().replace(/[^a-z0-9]+/g,'-')}.csv`;
+  triggerDownload(filename, '\uFEFF'+csv, 'text/csv;charset=utf-8'); // BOM para o Excel abrir acentos corretamente
+  showToast('📊 Despesas exportadas em CSV!', false);
+}
+
+/* ---------- Day summary: share as plain text (WhatsApp etc.) or download a printable page ---------- */
+function buildDayPlainText(dayIndex){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  const day = currentTrip.itinerary.days[dayIndex];
+  const dateObj = new Date(day.date+'T00:00:00');
+  const dest = currentTrip.destinations.find(d=>d.id===day.destinationId);
+  const items = [...day.items].sort((a,b)=>(a.timeStart||a.time||'99:99').localeCompare(b.timeStart||b.time||'99:99'));
+  const lines = [];
+  lines.push(`📅 ${escapeAmp(t.name)} — Dia ${dayIndex+1}, ${dateObj.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}`);
+  if(dest) lines.push(`📍 ${dest.name}`);
+  lines.push('');
+  if(items.length===0){
+    lines.push('Nenhuma atividade planejada ainda.');
+  } else {
+    items.forEach(it=>{
+      const time = (it.timeStart||it.time) ? (it.timeStart||it.time)+(it.timeEnd?' – '+it.timeEnd:'') : 'Sem horário definido';
+      lines.push(`${time}  ${CATEGORY_ICONS[it.category]||'📌'} ${it.title}`);
+      if(it.place) lines.push(`   📍 ${it.place}`);
+      if(it.needsReservation) lines.push(`   ${it.reservationConfirmed?'✅ reserva confirmada':'🎫 precisa reservar'}`);
+      if(it.link) lines.push(`   🔗 ${it.link}`);
+      if(it.notes) lines.push(`   Obs: ${it.notes}`);
+      lines.push('');
+    });
+  }
+  lines.push('— Gerado pelo Diário de Bordo');
+  return lines.join('\n');
+}
+function escapeAmp(s){ return (s||'').toString(); } // texto plano, sem necessidade de escapar HTML
+function buildDayHtml(dayIndex){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  const day = currentTrip.itinerary.days[dayIndex];
+  const dateObj = new Date(day.date+'T00:00:00');
+  const dest = currentTrip.destinations.find(d=>d.id===day.destinationId);
+  const items = [...day.items].sort((a,b)=>(a.timeStart||a.time||'99:99').localeCompare(b.timeStart||b.time||'99:99'));
+  const rows = items.map(it=>`
+    <tr>
+      <td>${escapeHtml(it.timeStart||it.time||'—')}${it.timeEnd?' – '+escapeHtml(it.timeEnd):''}</td>
+      <td>${CATEGORY_ICONS[it.category]||'📌'} ${escapeHtml(it.title)}${it.needsReservation?(it.reservationConfirmed?' ✅':' 🎫'):''}</td>
+      <td>${escapeHtml(it.place||'')}</td>
+      <td>${[it.notes,it.link].filter(Boolean).map(x=>escapeHtml(x)).join(' — ')}</td>
+    </tr>`).join('');
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dia ${dayIndex+1} — ${escapeHtml(t.name)}</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;color:#2B2620;max-width:700px;margin:30px auto;padding:0 20px;line-height:1.5;}
+  h1{font-size:22px;border-bottom:2px solid #C08A3E;padding-bottom:8px;}
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px;}
+  th,td{border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top;}
+  th{background:#F6EFE2;}
+  .muted{color:#888;font-size:12px;margin-top:30px;}
+  @media print{ body{margin:0;} }
+</style></head>
+<body>
+  <h1>${escapeHtml(t.name)} — Dia ${dayIndex+1}<br><span style="font-size:15px;font-weight:normal;color:#555;">${dateObj.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}${dest?' · '+escapeHtml(dest.name):''}</span></h1>
+  ${items.length===0?'<p>Nenhuma atividade planejada ainda.</p>':`<table><tr><th>Horário</th><th>Atividade</th><th>Local</th><th>Obs.</th></tr>${rows}</table>`}
+  <p class="muted">Gerado por Diário de Bordo. Para imprimir ou salvar como PDF, use Ctrl/Cmd+P.</p>
+</body></html>`;
+}
+function openDaySummaryModal(dayIndex){
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>🖨️ Resumo do dia ${dayIndex+1}</h2>
+      <div class="note" style="margin-bottom:12px;">Compartilhe o plano desse dia com quem estiver viajando com você.</div>
+      <button class="btn brass" style="width:100%;margin-bottom:8px;" onclick="copyDaySummary(${dayIndex})">📋 Copiar texto (WhatsApp, e-mail...)</button>
+      <button class="btn ghost" style="width:100%;" onclick="downloadDaySummary(${dayIndex})">🖨️ Baixar para imprimir / salvar como PDF</button>
+      <div id="day-summary-msg" style="margin-top:10px;"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+        <button class="btn ghost" onclick="closeModal()">Fechar</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function copyDaySummary(dayIndex){
+  const text = buildDayPlainText(dayIndex);
+  const msg = document.getElementById('day-summary-msg');
+  try{
+    await navigator.clipboard.writeText(text);
+    msg.innerHTML = '<div class="note">✅ Copiado! Cole onde quiser.</div>';
+  }catch(e){
+    msg.innerHTML = `<div class="note">Não foi possível copiar automaticamente — selecione e copie manualmente:</div><textarea style="width:100%;height:160px;margin-top:6px;">${escapeHtml(text)}</textarea>`;
+  }
+}
+function downloadDaySummary(dayIndex){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  const html = buildDayHtml(dayIndex);
+  triggerDownload(`dia-${dayIndex+1}-${(t.name||'viagem').toLowerCase().replace(/[^a-z0-9]+/g,'-')}.html`, html, 'text/html;charset=utf-8');
+  showToast('🖨️ Resumo do dia exportado! Abra o arquivo e use Ctrl/Cmd+P para imprimir/salvar como PDF.', false);
+}
+
+function exportIcs(){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Diario de Bordo//Planejador de Viagem//PT','CALSCALE:GREGORIAN'];
+  let count = 0;
+  currentTrip.itinerary.days.forEach(day=>{
+    const dateStr = day.date.replace(/-/g,'');
+    day.items.forEach(it=>{
+      const start = it.timeStart || it.time;
+      let allDay = !start;
+      let dtStart, dtEnd;
+      if(!allDay){
+        const [sh,sm] = start.split(':');
+        dtStart = `${dateStr}T${sh.padStart(2,'0')}${sm.padStart(2,'0')}00`;
+        if(it.timeEnd){
+          const [eh,em] = it.timeEnd.split(':');
+          dtEnd = `${dateStr}T${eh.padStart(2,'0')}${em.padStart(2,'0')}00`;
+        } else {
+          const endH = (parseInt(sh,10)+1)%24;
+          dtEnd = `${dateStr}T${String(endH).padStart(2,'0')}${sm.padStart(2,'0')}00`;
+        }
+      }
+      const descParts = [];
+      if(it.notes) descParts.push(it.notes);
+      if(it.link) descParts.push('Link: '+it.link);
+      if(it.needsReservation) descParts.push(it.reservationConfirmed?'Reserva confirmada':'Precisa reservar');
+      lines.push('BEGIN:VEVENT');
+      lines.push('UID:'+it.id+'@diariodebordo');
+      lines.push('DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z');
+      if(allDay){ lines.push('DTSTART;VALUE=DATE:'+dateStr); }
+      else { lines.push('DTSTART:'+dtStart); lines.push('DTEND:'+dtEnd); }
+      const catLabel = CATEGORY_LABELS[it.category] ? '['+CATEGORY_LABELS[it.category]+'] ' : '';
+      lines.push('SUMMARY:'+icsEscape(catLabel+it.title));
+      if(it.place) lines.push('LOCATION:'+icsEscape(it.place));
+      if(descParts.length) lines.push('DESCRIPTION:'+icsEscape(descParts.join(' | ')));
+      lines.push('END:VEVENT');
+      count++;
+    });
+  });
+  lines.push('END:VCALENDAR');
+  if(count===0){ showToast('Ainda não há atividades no roteiro para exportar.', true); return; }
+  const filename = `roteiro-${(t.name||'viagem').toLowerCase().replace(/[^a-z0-9]+/g,'-')}.ics`;
+  triggerDownload(filename, lines.join('\r\n'), 'text/calendar;charset=utf-8');
+  showToast(`📅 ${count} atividade(s) exportada(s) — abra o arquivo para importar no seu calendário.`, false);
+}
+function exportSummary(){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  const balances = computeBalances();
+  const transactions = simplifyDebts(balances);
+  const cats = currentTrip.budget.categories;
+  const estTotal = cats.reduce((s,b)=>s+(+b.estimated||0),0);
+  const actTotal = cats.reduce((s,b)=>s+(+b.actual||0),0);
+
+  const itineraryHtml = currentTrip.itinerary.days.map((day,di)=>{
+    const dateObj = new Date(day.date+'T00:00:00');
+    const dest = currentTrip.destinations.find(d=>d.id===day.destinationId);
+    const items = [...day.items].sort((a,b)=>(a.timeStart||a.time||'99:99').localeCompare(b.timeStart||b.time||'99:99'));
+    return `
+      <h3>Dia ${di+1} — ${dateObj.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}${dest?' · '+escapeHtml(dest.name):''}</h3>
+      ${items.length===0?'<p class="muted">Nenhuma atividade planejada.</p>':`
+      <table>
+        <tr><th>Horário</th><th>Atividade</th><th>Local</th><th>Obs.</th></tr>
+        ${items.map(it=>`
+          <tr>
+            <td>${escapeHtml(it.timeStart||it.time||'—')}${it.timeEnd?' – '+escapeHtml(it.timeEnd):''}</td>
+            <td>${escapeHtml(it.title)}${it.needsReservation?(it.reservationConfirmed?' ✅':' 🎫'):''}</td>
+            <td>${escapeHtml(it.place||'')}</td>
+            <td>${[it.notes,it.link].filter(Boolean).map(x=>escapeHtml(x)).join(' — ')}</td>
+          </tr>`).join('')}
+      </table>`}
+    `;
+  }).join('');
+
+  const bookingsHtml = currentTrip.bookings.length===0 ? '<p class="muted">Nenhuma reserva registrada.</p>' : `
+    <table>
+      <tr><th>Tipo</th><th>Nome</th><th>Código</th><th>Datas</th><th>Notas</th></tr>
+      ${currentTrip.bookings.map(b=>`
+        <tr>
+          <td>${escapeHtml(BOOKING_LABELS[b.type]||b.type)}</td>
+          <td>${escapeHtml(b.name)}</td>
+          <td>${escapeHtml(b.code||'')}</td>
+          <td>${b.checkin?fmtDateShort(b.checkin):''}${b.checkout?' – '+fmtDateShort(b.checkout):''}</td>
+          <td>${escapeHtml(b.notes||'')}</td>
+        </tr>`).join('')}
+    </table>`;
+
+  const budgetHtml = `
+    <table>
+      <tr><th>Categoria</th><th>Previsto</th><th>Real</th></tr>
+      ${cats.map(cc=>`<tr><td>${escapeHtml(cc.name)}</td><td>${(+cc.estimated).toFixed(2)}</td><td>${(+cc.actual).toFixed(2)}</td></tr>`).join('')}
+      <tr style="font-weight:bold;"><td>Total</td><td>${estTotal.toFixed(2)}</td><td>${actTotal.toFixed(2)}</td></tr>
+    </table>
+  `;
+
+  let peopleHtml = '';
+  if(currentTrip.people.length>0){
+    peopleHtml = `
+      <h2>🤝 Divisão de despesas</h2>
+      <h3>Saldos</h3>
+      <table>
+        <tr><th>Pessoa</th><th>Saldo (${t.currency})</th></tr>
+        ${currentTrip.people.map(p=>`<tr><td>${escapeHtml(p.name)}</td><td>${(balances[p.id]||0).toFixed(2)}</td></tr>`).join('')}
+      </table>
+      <h3>Quem deve pagar quem</h3>
+      ${transactions.length? `<ul>${transactions.map(tr=>`<li>${escapeHtml(personName(tr.from))} deve pagar ${tr.amount.toFixed(2)} ${t.currency} para ${escapeHtml(personName(tr.to))}</li>`).join('')}</ul>` : '<p class="muted">Ninguém deve nada no momento.</p>'}
+    `;
+  }
+
+  const destSummary = currentTrip.destinations.map(d=>escapeHtml(d.name)).join(' → ');
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><title>${escapeHtml(t.name)} — Resumo da viagem</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;color:#2B2620;max-width:800px;margin:30px auto;padding:0 20px;line-height:1.5;}
+  h1{font-size:26px;border-bottom:2px solid #C08A3E;padding-bottom:8px;}
+  h2{font-size:19px;color:#1F2E45;margin-top:34px;border-bottom:1px solid #ccc;padding-bottom:4px;}
+  h3{font-size:15px;color:#1F2E45;margin-top:20px;}
+  table{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:13.5px;}
+  th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;}
+  th{background:#F6EFE2;}
+  .muted{color:#888;font-size:13px;}
+  .meta{color:#555;font-size:13.5px;margin-bottom:6px;}
+  @media print{ body{margin:0;} }
+</style></head>
+<body>
+  <h1>${escapeHtml(t.name)}</h1>
+  <p class="meta">${destSummary} · ${fmtDateShort(t.startDate)} – ${fmtDateShort(t.endDate)}</p>
+
+  <h2>🗓️ Roteiro</h2>
+  ${itineraryHtml || '<p class="muted">Sem dias no roteiro ainda.</p>'}
+
+  <h2>🎫 Reservas</h2>
+  ${bookingsHtml}
+
+  <h2>💰 Orçamento (${t.currency})</h2>
+  ${budgetHtml}
+
+  ${peopleHtml}
+
+  <p class="muted" style="margin-top:40px;">Gerado por Diário de Bordo em ${new Date().toLocaleDateString('pt-BR')}. Para salvar como PDF: abra este arquivo no navegador e use Ctrl/Cmd+P → "Salvar como PDF".</p>
+</body></html>`;
+  const filename = `resumo-${(t.name||'viagem').toLowerCase().replace(/[^a-z0-9]+/g,'-')}.html`;
+  triggerDownload(filename, html, 'text/html;charset=utf-8');
+  showToast('📄 Resumo exportado! Abra o arquivo e use Ctrl/Cmd+P para salvar como PDF.', false);
+}
+
+/* ================= ITINERARY ================= */
+function renderItinerary(c){
+  const days = currentTrip.itinerary.days;
+  c.innerHTML = `
+    <div class="card">
+      <h2>🗓️ Roteiro dia a dia</h2>
+      <div class="note" style="margin-bottom:10px;">Um quadro estilo Trello: cada coluna é um dia (arraste a tela para o lado para ver todos), e cada card é uma atividade com horário, link e reserva. Clique num card para editar.</div>
+      ${days.length===0 ? '<div class="empty">Defina as datas da viagem para gerar os dias (edite a viagem no topo).</div>' :
+        `<div class="board">${days.map((day,di)=>renderDayColumn(day,di)).join('')}</div>`}
+    </div>
+  `;
+}
+function renderDayColumn(day,di){
+  const dateObj = new Date(day.date+'T00:00:00');
+  const items = [...day.items].sort((a,b)=>(a.timeStart||a.time||'99:99').localeCompare(b.timeStart||b.time||'99:99'));
+  const multi = currentTrip.destinations.length>1;
+  const dest = currentTrip.destinations.find(d=>d.id===day.destinationId);
+  return `
+  <div class="board-col" style="${multi&&dest?`border-top:4px solid ${dest.color};`:''}">
+    <div class="board-col-head">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <span class="d-title">Dia ${di+1}</span>
+        <button class="iconbtn" title="Compartilhar / imprimir resumo do dia" onclick="openDaySummaryModal(${di})">🖨️</button>
+      </div>
+      <span class="d-sub">${dateObj.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})} · <span class="board-col-count">${day.items.length} atividade${day.items.length!==1?'s':''}</span></span>
+      ${multi ? `<select onchange="setDayDestination(${di},this.value)">
+          ${currentTrip.destinations.map(d=>`<option value="${d.id}" ${d.id===day.destinationId?'selected':''}>${escapeHtml(d.name)}</option>`).join('')}
+        </select>` : ''}
+    </div>
+    <div class="board-col-body">
+      ${items.map(it=>renderBoardCard(it,di)).join('')}
+    </div>
+    <button class="btn ghost sm board-add-btn" onclick="openItemModal(${di})">+ Adicionar</button>
+  </div>`;
+}
+async function setDayDestination(di,destId){
+  currentTrip.itinerary.days[di].destinationId = destId;
+  await saveCurrentTrip();
+  renderSection();
+}
+function renderBoardCard(it,di){
+  const start = it.timeStart || it.time || '';
+  const color = CATEGORY_COLORS[it.category] || '#6B6355';
+  let resBadge = '';
+  if(it.needsReservation){
+    resBadge = it.reservationConfirmed
+      ? `<span class="resbadge confirmed">✅ confirmada</span>`
+      : `<span class="resbadge pending">🎫 reservar</span>`;
+  }
+  return `
+  <div class="board-card" style="border-left:4px solid ${color};" onclick="openItemModal(${di},'${it.id}')">
+    <div class="board-card-time">${start||'--:--'}${it.timeEnd?`<span class="end"> – ${it.timeEnd}</span>`:''}</div>
+    <div class="board-card-title">${CATEGORY_ICONS[it.category]||'📌'} ${escapeHtml(it.title)}</div>
+    <div class="board-card-meta">
+      <span class="catchip">${CATEGORY_LABELS[it.category]||'Outro'}</span>${resBadge}<br>
+      ${it.place?escapeHtml(it.place):''}${(it.lat!=null)?' · 📍':''}${it.link?' · 🔗':''}
+    </div>
+    <div class="board-card-actions" onclick="event.stopPropagation()">
+      <button class="iconbtn" title="Marcar no mapa principal" onclick="armMapTarget(${di},'${it.id}')">📍</button>
+      <button class="iconbtn" title="Editar" onclick="openItemModal(${di},'${it.id}')">✏️</button>
+      <button class="iconbtn" title="Remover" onclick="removeItem(${di},'${it.id}')">🗑️</button>
+    </div>
+  </div>`;
+}
+function openItemModal(di, itemId){
+  const day = currentTrip.itinerary.days[di];
+  const editing = itemId ? day.items.find(i=>i.id===itemId) : null;
+  const startVal = editing ? (editing.timeStart||editing.time||'') : '';
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal" style="max-width:560px;">
+      <h2>${editing?'✏️ Editar atividade':'+ Nova atividade'}</h2>
+      <div class="row">
+        <div class="field"><label>Início</label><input id="it-time-start" type="time" value="${startVal}"></div>
+        <div class="field"><label>Fim (opcional)</label><input id="it-time-end" type="time" value="${editing?editing.timeEnd||'':''}"></div>
+        <div class="field"><label>Categoria</label>
+          <select id="it-cat">${Object.keys(CATEGORY_LABELS).map(k=>`<option value="${k}" ${editing&&editing.category===k?'selected':''}>${CATEGORY_ICONS[k]} ${CATEGORY_LABELS[k]}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="field"><label>Título</label><input id="it-title" placeholder="Ex: Visita ao Epcot" value="${editing?escapeHtml(editing.title):''}"></div>
+      <div class="field"><label>Local (texto)</label><input id="it-place" placeholder="Ex: Epcot, Lake Buena Vista" value="${editing?escapeHtml(editing.place||''):''}"></div>
+      <div class="field"><label>Link (ingresso, reserva, site...)</label><input id="it-link" placeholder="https://..." value="${editing?escapeHtml(editing.link||''):''}"></div>
+      <div class="row" style="align-items:center;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--text);"><input type="checkbox" id="it-needs-res" ${editing&&editing.needsReservation?'checked':''} onchange="document.getElementById('it-res-confirmed-wrap').style.display=this.checked?'block':'none'" style="width:17px;height:17px;">Precisa de reserva</label>
+      </div>
+      <div class="field" id="it-res-confirmed-wrap" style="display:${editing&&editing.needsReservation?'block':'none'};margin-top:-4px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-soft);"><input type="checkbox" id="it-res-confirmed" ${editing&&editing.reservationConfirmed?'checked':''} style="width:16px;height:16px;">Reserva já confirmada</label>
+      </div>
+      <div class="field">
+        <label>Local no mapa (clique para marcar, ou arraste o pino)</label>
+        <div id="item-map-mini"></div>
+        <div class="note" id="item-map-coords" style="margin-top:4px;"></div>
+        <button type="button" class="btn ghost sm" style="margin-top:4px;" onclick="clearItemMiniMarker()">Limpar local</button>
+      </div>
+      <div class="field"><label>Notas</label><textarea id="it-notes">${editing?escapeHtml(editing.notes||''):''}</textarea></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+        <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn brass" onclick="saveItem(${di}, ${editing?`'${itemId}'`:'null'})">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  setTimeout(()=>initItemMiniMap(di, editing), 30);
+}
+function initItemMiniMap(di, editing){
+  const el = document.getElementById('item-map-mini');
+  if(!el || !window.L) return;
+  el.style.height='220px'; el.style.borderRadius='10px'; el.style.border='1px solid var(--line)';
+  if(itemMiniMap){ itemMiniMap.remove(); itemMiniMap=null; itemMiniMarker=null; }
+  const day = currentTrip.itinerary.days[di];
+  const dest = currentTrip.destinations.find(d=>d.id===day.destinationId) || currentTrip.destinations[0];
+  const hasPoint = editing && editing.lat!=null && editing.lng!=null;
+  const startLat = hasPoint ? editing.lat : (dest&&dest.lat!=null?dest.lat:20);
+  const startLng = hasPoint ? editing.lng : (dest&&dest.lng!=null?dest.lng:0);
+  const zoom = hasPoint ? 14 : (dest&&dest.lat!=null?11:2);
+  itemMiniMap = L.map('item-map-mini',{zoomControl:true}).setView([startLat,startLng], zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}).addTo(itemMiniMap);
+  if(hasPoint) placeItemMiniMarker(editing.lat, editing.lng);
+  updateItemMapCoordsLabel(hasPoint?editing.lat:null, hasPoint?editing.lng:null);
+  itemMiniMap.on('click', e=>{ placeItemMiniMarker(e.latlng.lat, e.latlng.lng); });
+}
+function placeItemMiniMarker(lat,lng){
+  if(itemMiniMarker){ itemMiniMap.removeLayer(itemMiniMarker); itemMiniMarker=null; }
+  itemMiniMarker = L.marker([lat,lng], {draggable:true}).addTo(itemMiniMap);
+  itemMiniMarker.on('dragend', ()=>{ const ll=itemMiniMarker.getLatLng(); updateItemMapCoordsLabel(ll.lat,ll.lng); });
+  updateItemMapCoordsLabel(lat,lng);
+}
+function clearItemMiniMarker(){
+  if(itemMiniMarker){ itemMiniMap.removeLayer(itemMiniMarker); itemMiniMarker=null; }
+  updateItemMapCoordsLabel(null,null);
+}
+function updateItemMapCoordsLabel(lat,lng){
+  const el = document.getElementById('item-map-coords');
+  if(!el) return;
+  el.textContent = (lat!=null && lng!=null) ? `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Nenhum local marcado ainda — clique no mapa acima.';
+  el.dataset.lat = (lat!=null)?lat:'';
+  el.dataset.lng = (lng!=null)?lng:'';
+}
+async function saveItem(di, itemId){
+  const day = currentTrip.itinerary.days[di];
+  const timeStart = document.getElementById('it-time-start').value;
+  const timeEnd = document.getElementById('it-time-end').value;
+  const category = document.getElementById('it-cat').value;
+  const title = document.getElementById('it-title').value.trim();
+  const place = document.getElementById('it-place').value.trim();
+  const link = document.getElementById('it-link').value.trim();
+  const needsReservation = document.getElementById('it-needs-res').checked;
+  const reservationConfirmed = document.getElementById('it-res-confirmed').checked;
+  const notes = document.getElementById('it-notes').value.trim();
+  const coordsEl = document.getElementById('item-map-coords');
+  const lat = coordsEl && coordsEl.dataset.lat ? parseFloat(coordsEl.dataset.lat) : null;
+  const lng = coordsEl && coordsEl.dataset.lng ? parseFloat(coordsEl.dataset.lng) : null;
+  if(!title){ showToast('Dê um título para a atividade.', true); return; }
+  const fields = {timeStart, timeEnd, category, title, place, link, needsReservation, reservationConfirmed, notes, lat, lng};
+  if(itemId){
+    const it = day.items.find(i=>i.id===itemId);
+    delete it.time; // migra de vez o campo antigo
+    Object.assign(it, fields);
+  } else {
+    day.items.push({id:uid(), ...fields});
+  }
+  await saveCurrentTrip();
+  closeModal();
+  renderSection();
+}
+async function removeItem(di,itemId){
+  const day = currentTrip.itinerary.days[di];
+  day.items = day.items.filter(i=>i.id!==itemId);
+  await saveCurrentTrip();
+  renderSection();
+}
+function armMapTarget(di,itemId){
+  mapPendingTarget = {dayIndex:di, itemId};
+  mapSelectedDay = di;
+  setSection('map');
+}
+
+/* ================= BOOKINGS ================= */
+let pendingBookingFiles = []; // [{name,type,data}] staged until the booking is saved
+let currentBookingModalId = null;
+const MAX_FILE_BYTES = 3.5*1024*1024;
+
+function renderBookings(c){
+  const list = currentTrip.bookings;
+  c.innerHTML = `
+    <div class="card">
+      <h2>🎫 Reservas</h2>
+      <div class="note" style="margin-bottom:10px;">Guarde os dados essenciais, anexe os PDFs da reserva (até ~3,5MB cada, quantos quiser — ida e volta, por exemplo) e/ou um link (Gmail, Google Drive, etc).</div>
+      <button class="btn brass" style="margin-bottom:14px;" onclick="openBookingModal()">+ Adicionar reserva</button>
+      ${list.length===0?'<div class="empty">Nenhuma reserva registrada ainda.</div>':
+        list.map(b=>`
+        <div class="booking-card">
+          <div>
+            <div style="font-weight:600;">${BOOKING_ICONS[b.type]||'📄'} ${escapeHtml(b.name)} <span class="code">${escapeHtml(b.code||'')}</span></div>
+            <div class="item-meta">${BOOKING_LABELS[b.type]} · ${b.checkin?fmtDateShort(b.checkin):''}${b.checkout?' → '+fmtDateShort(b.checkout):''}</div>
+            ${b.notes?`<div class="item-meta">${escapeHtml(b.notes)}</div>`:''}
+            <div class="item-meta" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;">
+              ${(b.attachments||[]).map(a=>`<a href="#" onclick="viewBookingFile('${a.id}');return false;" style="color:var(--teal-dark);">📎 ${escapeHtml(a.name)}</a>`).join('')}
+              ${b.link?`<a href="${escapeHtml(b.link)}" target="_blank" rel="noopener" style="color:var(--teal-dark);">🔗 abrir reserva</a>`:''}
+            </div>
+          </div>
+          <div class="item-actions">
+            <button class="iconbtn" onclick="openBookingModal('${b.id}')">✏️</button>
+            <button class="iconbtn" onclick="removeBooking('${b.id}')">🗑️</button>
+          </div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+function openBookingModal(id){
+  const isNew = !id;
+  if(isNew) id = uid();
+  pendingBookingFiles = [];
+  currentBookingModalId = id;
+  const editing = currentTrip.bookings.find(b=>b.id===id) || null;
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>${editing?'✏️ Editar reserva':'+ Nova reserva'}</h2>
+      <div class="row">
+        <div class="field"><label>Tipo</label><select id="bk-type">${Object.keys(BOOKING_LABELS).map(k=>`<option value="${k}" ${editing&&editing.type===k?'selected':''}>${BOOKING_ICONS[k]} ${BOOKING_LABELS[k]}</option>`).join('')}</select></div>
+        <div class="field"><label>Código de confirmação</label><input id="bk-code" value="${editing?escapeHtml(editing.code||''):''}"></div>
+      </div>
+      <div class="field"><label>Nome (hotel, companhia aérea, locadora...)</label><input id="bk-name" value="${editing?escapeHtml(editing.name):''}"></div>
+      <div class="row">
+        <div class="field"><label>Check-in / Data</label><input id="bk-in" type="date" value="${editing?editing.checkin||'':''}"></div>
+        <div class="field"><label>Check-out / Data fim</label><input id="bk-out" type="date" value="${editing?editing.checkout||'':''}"></div>
+      </div>
+      <div class="field">
+        <label>Anexos (PDFs, até ~3,5MB cada — pode escolher vários de uma vez)</label>
+        <input type="file" accept="application/pdf,.pdf" multiple onchange="onBookingFileChange(this)">
+        <div id="bk-attachments-list" style="margin-top:6px;"></div>
+      </div>
+      <div class="field"><label>Link (PDF, e-mail, Google Drive...)</label><input id="bk-link" placeholder="https://..." value="${editing?escapeHtml(editing.link||''):''}"></div>
+      <div class="field"><label>Notas</label><textarea id="bk-notes">${editing?escapeHtml(editing.notes||''):''}</textarea></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+        <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn brass" onclick="saveBooking('${id}')">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  renderAttachmentsList(editing ? editing.attachments : []);
+}
+function renderAttachmentsList(existingAttachments){
+  const list = document.getElementById('bk-attachments-list');
+  if(!list) return;
+  const existingHtml = (existingAttachments||[]).map(a=>`
+    <div class="checkrow">
+      <span class="label">📎 ${escapeHtml(a.name)}</span>
+      <button type="button" class="iconbtn" style="margin-left:auto;" onclick="viewBookingFile('${a.id}')" title="Ver/baixar">👁️</button>
+      <button type="button" class="iconbtn" onclick="removeExistingAttachment('${a.id}')" title="Remover">🗑️</button>
+    </div>`).join('');
+  const pendingHtml = pendingBookingFiles.map((f,idx)=>`
+    <div class="checkrow">
+      <span class="label">🆕 ${escapeHtml(f.name)} <span style="color:var(--text-soft);">(será salvo)</span></span>
+      <button type="button" class="iconbtn" style="margin-left:auto;" onclick="removePendingAttachment(${idx})" title="Remover">🗑️</button>
+    </div>`).join('');
+  const combined = existingHtml+pendingHtml;
+  list.innerHTML = combined || '<div class="note">Nenhum anexo ainda.</div>';
+}
+async function onBookingFileChange(input){
+  const files = Array.from(input.files||[]);
+  for(const file of files){
+    if(file.size > MAX_FILE_BYTES){
+      showToast(`"${file.name}" é muito grande (máx. ~3,5MB) — ignorado.`, true);
+      continue;
+    }
+    try{
+      const base64 = await new Promise((resolve,reject)=>{
+        const reader = new FileReader();
+        reader.onload = ()=>resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      pendingBookingFiles.push({name:file.name, type:file.type||'application/pdf', data:base64});
+    }catch(e){ showToast(`Não foi possível ler "${file.name}".`, true); }
+  }
+  input.value = '';
+  const editing = currentTrip.bookings.find(b=>b.id===currentBookingModalId);
+  renderAttachmentsList(editing ? editing.attachments : []);
+}
+function removePendingAttachment(idx){
+  pendingBookingFiles.splice(idx,1);
+  const editing = currentTrip.bookings.find(b=>b.id===currentBookingModalId);
+  renderAttachmentsList(editing ? editing.attachments : []);
+}
+async function removeExistingAttachment(attId){
+  if(!(await showConfirm('Remover este anexo?'))) return;
+  await storDelete('file:'+attId);
+  const booking = currentTrip.bookings.find(b=>b.id===currentBookingModalId);
+  if(booking) booking.attachments = (booking.attachments||[]).filter(a=>a.id!==attId);
+  await saveCurrentTrip();
+  renderAttachmentsList(booking ? booking.attachments : []);
+}
+async function saveBooking(id){
+  const type = document.getElementById('bk-type').value;
+  const code = document.getElementById('bk-code').value.trim();
+  const name = document.getElementById('bk-name').value.trim();
+  const checkin = document.getElementById('bk-in').value;
+  const checkout = document.getElementById('bk-out').value;
+  const link = document.getElementById('bk-link').value.trim();
+  const notes = document.getElementById('bk-notes').value.trim();
+  if(!name){ showToast('Dê um nome para a reserva.', true); return; }
+  let booking = currentTrip.bookings.find(b=>b.id===id);
+  if(!booking){ booking = {id, attachments:[]}; currentTrip.bookings.push(booking); }
+  if(!booking.attachments) booking.attachments = [];
+  Object.assign(booking, {type,code,name,checkin,checkout,link,notes});
+  for(const f of pendingBookingFiles){
+    const attId = uid();
+    const ok = await storSet('file:'+attId, f);
+    if(ok) booking.attachments.push({id:attId, name:f.name, type:f.type});
+    else showToast(`Não foi possível salvar o anexo "${f.name}".`, true);
+  }
+  pendingBookingFiles = [];
+  await saveCurrentTrip();
+  closeModal();
+  renderSection();
+}
+async function viewBookingFile(attId){
+  const rec = await storGet('file:'+attId);
+  if(!rec){ showToast('Arquivo não encontrado — talvez tenha sido removido.', true); return; }
+  const a = document.createElement('a');
+  a.href = `data:${rec.type};base64,${rec.data}`;
+  a.download = rec.name;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+async function removeBooking(id){
+  const b = currentTrip.bookings.find(x=>x.id===id);
+  if(b){ for(const a of (b.attachments||[])) await storDelete('file:'+a.id); }
+  currentTrip.bookings = currentTrip.bookings.filter(x=>x.id!==id);
+  await saveCurrentTrip();
+  renderSection();
+}
+
+/* ================= MAP ================= */
+function renderMapSection(c){
+  const days = currentTrip.itinerary.days;
+  c.innerHTML = `
+    <div class="card">
+      <h2>🗺️ Mapa da viagem</h2>
+      ${mapPendingTarget ? `<div class="banner"><span>Clique no mapa para definir o local da atividade selecionada.</span><button class="btn ghost sm" onclick="cancelMapTarget()">Cancelar</button></div>` : ''}
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="max-width:300px;">
+          <label>Visualizar</label>
+          <select id="map-day-select" onchange="mapSelectedDay=this.value==='overview'?-1:parseInt(this.value); renderSection();">
+            <option value="overview" ${mapSelectedDay===-1?'selected':''}>Visão geral (todos os destinos e dias)</option>
+            ${days.map((d,i)=>{
+              const dest = currentTrip.destinations.find(x=>x.id===d.destinationId);
+              return `<option value="${i}" ${mapSelectedDay===i?'selected':''}>Dia ${i+1} — ${fmtDateHuman(d.date)}${dest?' · '+dest.name:''}</option>`;
+            }).join('')}
+          </select>
+        </div>
+        <div class="field" style="max-width:280px;">
+          <label>Buscar local (adiciona um marcador manual)</label>
+          <div style="display:flex;gap:6px;">
+            <input id="map-search" placeholder="Ex: Cinderella Castle">
+            <button class="btn ghost sm" onclick="searchAndCenterMap()">Buscar</button>
+          </div>
+        </div>
+      </div>
+      ${currentTrip.destinations.length>1?`<div class="note" style="margin-bottom:6px;">🔵 Os círculos maiores marcam a base de cada destino (cor conforme a aba Destinos).</div>`:''}
+      <div id="mapview"></div>
+      <div id="map-distances" style="margin-top:12px;"></div>
+    </div>
+  `;
+  setTimeout(initLeaflet, 30);
+}
+function cancelMapTarget(){ mapPendingTarget=null; renderSection(); }
+
+function initLeaflet(){
+  const el = document.getElementById('mapview');
+  if(!el) return;
+  if(leafletMap){ leafletMap.remove(); leafletMap=null; }
+  const firstHub = currentTrip.destinations.find(d=>d.lat!=null && d.lng!=null);
+  const center = firstHub ? [firstHub.lat,firstHub.lng] : [20,0];
+  const zoom = firstHub ? 10 : 2;
+  leafletMap = L.map('mapview').setView(center, zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom:19
+  }).addTo(leafletMap);
+
+  leafletMap.on('click', async (e)=>{
+    if(mapPendingTarget){
+      const day = currentTrip.itinerary.days[mapPendingTarget.dayIndex];
+      const it = day.items.find(i=>i.id===mapPendingTarget.itemId);
+      it.lat = e.latlng.lat; it.lng = e.latlng.lng;
+      await saveCurrentTrip();
+      mapPendingTarget = null;
+      renderSection();
+    }
+  });
+
+  plotMapMarkers();
+}
+async function searchAndCenterMap(){
+  const q = document.getElementById('map-search').value.trim();
+  if(!q || !leafletMap) return;
+  try{
+    const data = await fetchJsonRobust('https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&format=json&name='+encodeURIComponent(q));
+    if(data && data.results && data.results[0]){
+      const r = data.results[0];
+      leafletMap.setView([r.latitude,r.longitude], 14);
+      L.marker([r.latitude,r.longitude]).addTo(leafletMap).bindPopup(escapeHtml([r.name,r.admin1,r.country].filter(Boolean).join(', '))).openPopup();
+      return;
+    }
+  }catch(e){ /* tenta o próximo provedor */ }
+  try{
+    const data = await fetchJsonRobust('https://photon.komoot.io/api/?limit=1&lang=pt&q='+encodeURIComponent(q));
+    const f = data && data.features && data.features[0];
+    if(f && f.geometry && f.geometry.coordinates){
+      const [lng,lat] = f.geometry.coordinates;
+      leafletMap.setView([lat,lng], 14);
+      const p = f.properties||{};
+      L.marker([lat,lng]).addTo(leafletMap).bindPopup(escapeHtml([p.name,p.city,p.country].filter(Boolean).join(', '))).openPopup();
+      return;
+    }
+  }catch(e){ /* segue para o alerta abaixo */ }
+  showToast('Local não encontrado em nenhum serviço agora. Tente um termo mais simples/um endereço completo, ou clique diretamente no mapa.', true);
+}
+function plotDestinationHubs(bounds){
+  currentTrip.destinations.forEach(d=>{
+    if(d.lat!=null && d.lng!=null){
+      const m = L.circleMarker([d.lat,d.lng], {radius:13, color:'#1F2E45', weight:2, fillColor:d.color, fillOpacity:0.9})
+        .addTo(leafletMap).bindPopup(`<b>${escapeHtml(d.name)}</b><br>${d.currency} · ${(TIMEZONES.find(z=>z[0]===d.timezone)||[,d.timezone])[1]}`);
+      mapMarkers.push(m);
+      if(bounds) bounds.push([d.lat,d.lng]);
+    }
+  });
+}
+function plotMapMarkers(){
+  mapMarkers.forEach(m=>leafletMap.removeLayer(m));
+  mapMarkers = [];
+  const days = currentTrip.itinerary.days;
+  const distDiv = document.getElementById('map-distances');
+  const bounds = [];
+
+  if(mapSelectedDay===-1){
+    plotDestinationHubs(bounds);
+    days.forEach((day,di)=>{
+      const color = day.destinationId ? destColor(day.destinationId) : DAY_COLORS[di%DAY_COLORS.length];
+      day.items.filter(it=>it.lat&&it.lng).forEach(it=>{
+        const m = L.circleMarker([it.lat,it.lng], {radius:7,color, fillColor:color, fillOpacity:.85})
+          .addTo(leafletMap).bindPopup(`<b>Dia ${di+1}</b> · ${escapeHtml(it.title)}`);
+        mapMarkers.push(m);
+        bounds.push([it.lat,it.lng]);
+      });
+    });
+    let html = '<div class="note">Selecione um dia específico para ver a distância calculada entre os pontos daquele dia.</div>';
+    const orderedHubs = currentTrip.destinations.filter(d=>d.lat!=null&&d.lng!=null).slice().sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||''));
+    if(orderedHubs.length>1){
+      let total=0, rows=[];
+      for(let i=0;i<orderedHubs.length-1;i++){
+        const dd = haversine(orderedHubs[i].lat,orderedHubs[i].lng,orderedHubs[i+1].lat,orderedHubs[i+1].lng);
+        total+=dd;
+        rows.push(`${escapeHtml(orderedHubs[i].name)} → ${escapeHtml(orderedHubs[i+1].name)}: <b>${dd.toFixed(0)} km</b>`);
+      }
+      html = `<h3>📏 Distâncias entre destinos</h3><div class="distlist">${rows.join('<br>')}<br><br>Total entre destinos: <b>${total.toFixed(0)} km</b></div>` + html;
+    }
+    distDiv.innerHTML = html;
+  } else {
+    plotDestinationHubs(null);
+    const day = days[mapSelectedDay];
+    const color = day.destinationId ? destColor(day.destinationId) : DAY_COLORS[mapSelectedDay%DAY_COLORS.length];
+    const pts = day.items.filter(it=>it.lat&&it.lng).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+    pts.forEach((it,i)=>{
+      const m = L.marker([it.lat,it.lng]).addTo(leafletMap)
+        .bindPopup(`<b>${i+1}. ${escapeHtml(it.title)}</b><br>${it.time||''}`);
+      mapMarkers.push(m);
+      bounds.push([it.lat,it.lng]);
+    });
+    if(pts.length>1){
+      const line = L.polyline(pts.map(p=>[p.lat,p.lng]), {color, weight:3, dashArray:'6 6'}).addTo(leafletMap);
+      mapMarkers.push(line);
+      let total=0, rows=[];
+      for(let i=0;i<pts.length-1;i++){
+        const d = haversine(pts[i].lat,pts[i].lng,pts[i+1].lat,pts[i+1].lng);
+        total+=d;
+        rows.push(`${i+1}. ${escapeHtml(pts[i].title)} → ${escapeHtml(pts[i+1].title)}: <b>${d.toFixed(1)} km</b>`);
+      }
+      distDiv.innerHTML = `<h3>📏 Distâncias — Dia ${mapSelectedDay+1}</h3><div class="distlist">${rows.join('<br>')}<br><br>Total do dia: <b>${total.toFixed(1)} km</b></div>`;
+    } else if(pts.length===1){
+      distDiv.innerHTML = '<div class="note">Apenas um ponto marcado neste dia — adicione mais para calcular distâncias.</div>';
+    } else {
+      distDiv.innerHTML = '<div class="note">Nenhum ponto marcado neste dia ainda. Vá ao Roteiro e clique em 📍 numa atividade.</div>';
+    }
+  }
+  if(bounds.length) leafletMap.fitBounds(bounds, {padding:[40,40]});
+}
+
+/* ================= CURRENCY & TIMEZONE ================= */
+function renderCurrencyTz(c){
+  const ds = currentTrip.destinations;
+  const defaultCurr = ds[0] ? ds[0].currency : 'USD';
+  const defaultTz = ds[0] ? ds[0].timezone : 'America/Sao_Paulo';
+  c.innerHTML = `
+    ${ds.length>1?`
+    <div class="card">
+      <h2>🌍 Seus destinos, de relance</h2>
+      <div class="grid3">
+        ${ds.map(d=>`
+          <div class="tzcard" style="border-top:4px solid ${d.color};">
+            <div class="place">${escapeHtml(d.name)}</div>
+            <div class="time" data-tz="${d.timezone}">--:--</div>
+            <div class="off">${d.currency}</div>
+          </div>`).join('')}
+      </div>
+    </div>`:''}
+    <div class="grid2">
+      <div class="card">
+        <h2>💱 Conversor de moeda</h2>
+        <div class="row">
+          <div class="field"><label>De</label>${currencyInputHtml('cv-from','BRL')}</div>
+          <div class="field"><label>Para</label>${currencyInputHtml('cv-to',defaultCurr)}</div>
+        </div>
+        <div class="field"><label>Valor</label><input id="cv-amount" type="number" value="100"></div>
+        ${ds.length>1?`<div class="note" style="margin-bottom:8px;">Atalho por destino: ${ds.map(d=>`<button class="btn ghost sm" onclick="quickCurrency('${d.currency}')">${escapeHtml(d.name)} (${d.currency})</button>`).join(' ')}</div>`:''}
+        <button class="btn teal" onclick="doConvert()">Converter (cotação em tempo real)</button>
+        <div id="cv-result" style="margin-top:14px;"></div>
+      </div>
+      <div class="card">
+        <h2>🕐 Fuso horário</h2>
+        <div class="row">
+          <div class="field"><label>Seu fuso</label>
+            <select id="tz-from">${TIMEZONES.map(([v,l])=>`<option value="${v}" ${v==='America/Sao_Paulo'?'selected':''}>${l}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Destino</label>
+            <select id="tz-to">${TIMEZONES.map(([v,l])=>`<option value="${v}" ${v===defaultTz?'selected':''}>${l}</option>`).join('')}</select>
+          </div>
+        </div>
+        ${ds.length>1?`<div class="note" style="margin-bottom:8px;">Atalho por destino: ${ds.map(d=>`<button class="btn ghost sm" onclick="quickTimezone('${d.timezone}')">${escapeHtml(d.name)}</button>`).join(' ')}</div>`:''}
+        <button class="btn teal" onclick="doTimezone()">Comparar horários</button>
+        <div id="tz-result" style="margin-top:14px;"></div>
+      </div>
+    </div>
+  `;
+  doTimezone();
+  updateHubClocks();
+  if(hubClockInterval) clearInterval(hubClockInterval);
+  hubClockInterval = setInterval(updateHubClocks, 30000);
+}
+function updateHubClocks(){
+  document.querySelectorAll('[data-tz]').forEach(el=>{
+    const tz = el.getAttribute('data-tz');
+    try{ el.textContent = new Date().toLocaleTimeString('pt-BR',{timeZone:tz,hour:'2-digit',minute:'2-digit'}); }
+    catch(e){ el.textContent='--:--'; }
+  });
+}
+function quickCurrency(code){ document.getElementById('cv-to').value = code; doConvert(); }
+function quickTimezone(tz){ document.getElementById('tz-to').value = tz; doTimezone(); }
+async function doConvert(){
+  const from = document.getElementById('cv-from').value.trim().toLowerCase();
+  const to = document.getElementById('cv-to').value.trim().toLowerCase();
+  const amount = parseFloat(document.getElementById('cv-amount').value)||0;
+  const resDiv = document.getElementById('cv-result');
+  resDiv.innerHTML = 'Buscando cotação...';
+  const urls = [
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${from}.json`,
+    `https://latest.currency-api.pages.dev/v1/currencies/${from}.json`
+  ];
+  for(const url of urls){
+    try{
+      const res = await fetch(url);
+      if(!res.ok) continue;
+      const data = await res.json();
+      const rates = data[from];
+      if(rates && rates[to]!=null){
+        const rate = rates[to];
+        const converted = amount*rate;
+        currencyRateCache[from.toUpperCase()+'_'+to.toUpperCase()] = {rate, date:data.date, manual:false};
+        saveCurrencyCache();
+        resDiv.innerHTML = `<div class="bigresult">${to.toUpperCase()} ${converted.toFixed(2)}</div>
+          <div class="note">1 ${from.toUpperCase()} = ${rate.toFixed(4)} ${to.toUpperCase()} · atualizado em ${data.date}</div>
+          <button type="button" class="btn ghost sm" style="margin-top:8px;" onclick="renderManualConvertForm()">✏️ Informar cotação manualmente</button>`;
+        return;
+      }
+    }catch(e){ console.error('doConvert falhou', e); /* tenta a próxima fonte */ }
+  }
+  renderManualConvertForm();
+}
+function renderManualConvertForm(){
+  const from = document.getElementById('cv-from').value.trim().toUpperCase();
+  const to = document.getElementById('cv-to').value.trim().toUpperCase();
+  const amount = parseFloat(document.getElementById('cv-amount').value)||0;
+  const resDiv = document.getElementById('cv-result');
+  const cached = currencyRateCache[from+'_'+to];
+  resDiv.innerHTML = `
+    <div class="note" style="margin-bottom:8px;">⚠️ Não conseguimos buscar a cotação automática agora. Informe a taxa manualmente (você pode conferir em qualquer banco/casa de câmbio):</div>
+    <div class="row" style="align-items:flex-end;">
+      <div class="field"><label>1 ${from} = quantos ${to}?</label><input id="cv-manual-rate" type="number" step="0.0001" value="${cached?cached.rate:''}" placeholder="ex: 5.20"></div>
+      <button type="button" class="btn brass sm" onclick="applyManualRate()">Converter</button>
+    </div>
+    ${cached?`<div class="note" style="margin-top:6px;">💾 Última cotação conhecida: 1 ${from} = ${cached.rate} ${to} (${cached.manual?'informada manualmente':'obtida em '+cached.date}) — já preenchida acima, ajuste se quiser.</div>`:''}
+  `;
+}
+function applyManualRate(){
+  const rate = parseFloat(document.getElementById('cv-manual-rate').value);
+  const from = document.getElementById('cv-from').value.trim().toUpperCase();
+  const to = document.getElementById('cv-to').value.trim().toUpperCase();
+  const amount = parseFloat(document.getElementById('cv-amount').value)||0;
+  if(!rate || rate<=0){ showToast('Informe uma taxa de câmbio válida.', true); return; }
+  currencyRateCache[from+'_'+to] = {rate, date:new Date().toISOString().slice(0,10), manual:true};
+  saveCurrencyCache();
+  const resDiv = document.getElementById('cv-result');
+  resDiv.innerHTML = `<div class="bigresult">${to} ${(amount*rate).toFixed(2)}</div>
+    <div class="note">1 ${from} = ${rate} ${to} (informado manualmente — salvo para a próxima vez)</div>
+    <button type="button" class="btn ghost sm" style="margin-top:8px;" onclick="doConvert()">🔄 Tentar buscar automaticamente de novo</button>`;
+}
+function doTimezone(){
+  const from = document.getElementById('tz-from').value;
+  const to = document.getElementById('tz-to').value;
+  const resDiv = document.getElementById('tz-result');
+  const now = new Date();
+  function info(tz){
+    const time = now.toLocaleTimeString('pt-BR',{timeZone:tz, hour:'2-digit',minute:'2-digit'});
+    const date = now.toLocaleDateString('pt-BR',{timeZone:tz, day:'2-digit',month:'2-digit'});
+    const parts = new Intl.DateTimeFormat('en-US',{timeZone:tz,timeZoneName:'shortOffset'}).formatToParts(now);
+    const offsetStr = (parts.find(p=>p.type==='timeZoneName')||{}).value || '';
+    return {time,date,offsetStr};
+  }
+  const a = info(from), b = info(to);
+  function offsetHours(s){
+    const m = (s||'').match(/GMT([+-]\d+)(?::(\d+))?/);
+    if(!m) return 0;
+    return parseFloat(m[1]) + (m[2]?parseFloat(m[2])/60*Math.sign(parseFloat(m[1])||1):0);
+  }
+  const diff = offsetHours(b.offsetStr) - offsetHours(a.offsetStr);
+  const diffLabel = diff===0 ? 'Mesmo horário' : (diff>0? `Destino ${Math.abs(diff)}h à frente` : `Destino ${Math.abs(diff)}h atrás`);
+  resDiv.innerHTML = `
+    <div class="row">
+      <div class="tzcard"><div class="place">Você</div><div class="time">${a.time}</div><div class="off">${a.date} · ${a.offsetStr}</div></div>
+      <div class="tzcard"><div class="place">Destino</div><div class="time">${b.time}</div><div class="off">${b.date} · ${b.offsetStr}</div></div>
+    </div>
+    <div class="note" style="margin-top:10px;text-align:center;font-size:13px;">${diffLabel}</div>
+  `;
+}
+
+/* ================= PACKING / WEATHER ================= */
+function renderPacking(c){
+  const ds = currentTrip.destinations;
+  const items = currentTrip.packing.items;
+  const doneCount = items.filter(i=>i.done).length;
+  const days = currentTrip.itinerary.days;
+  const outfitsByDate = currentTrip.packing.outfitsByDate || {};
+  const outfitsPlanned = days.filter(day=>outfitsByDate[day.date] && outfitsByDate[day.date].description).length;
+  const outfitsDone = days.filter(day=>outfitsByDate[day.date] && outfitsByDate[day.date].done).length;
+  c.innerHTML = `
+    <div class="card">
+      <h2>🌤️ Previsão do tempo por destino</h2>
+      <div class="note" style="margin-bottom:10px;">Cada destino usa suas próprias datas e coordenadas para a previsão.</div>
+      ${ds.map(d=>`
+        <div style="border:1px dashed var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+          <h3 style="border-left:4px solid ${d.color};padding-left:8px;margin-bottom:8px;">${escapeHtml(d.name)}</h3>
+          ${(d.lat!=null && d.lng!=null) ?
+            `<div class="row"><button class="btn ghost sm" onclick="fetchWeather('${d.id}')">🔄 Tentar buscar previsão automática</button><button class="btn ghost sm" onclick="renderWeatherManualForm('${d.id}')">✏️ Informar clima manualmente</button></div><div id="weather-box-${d.id}" style="margin-top:10px;"></div>` :
+            `<div class="note">Defina as coordenadas deste destino na aba 🌍 Destinos para ver a previsão.</div>`}
+        </div>`).join('')}
+    </div>
+    <div class="card">
+      <h2>🧳 Checklist de mala</h2>
+      <div class="note" style="margin-bottom:6px;">Sugestões geradas a partir do clima de todos os destinos e da duração da viagem. Marque o que já foi arrumado e adicione o que quiser.</div>
+      <button class="btn brass sm" style="margin-bottom:10px;" onclick="generateAllPackingSuggestions()">🔄 Gerar/atualizar sugestões com base no clima</button>
+      ${items.length? `<div class="progress-wrap"><div class="progress-bar" style="width:${Math.round(doneCount/items.length*100)}%"></div></div><div class="note">${doneCount} de ${items.length} arrumados</div>` : ''}
+      <div style="margin-top:10px;">
+        ${items.length===0? '<div class="empty">Busque a previsão do tempo acima e clique em "Gerar sugestões", ou adicione itens manualmente.</div>' :
+          items.map(i=>`
+          <div class="checkrow ${i.done?'done':''}">
+            <input type="checkbox" ${i.done?'checked':''} onchange="togglePackItem('${i.id}')">
+            <span class="label">${escapeHtml(i.label)}</span>
+            <button class="iconbtn" style="margin-left:auto;" onclick="removePackItem('${i.id}')">🗑️</button>
+          </div>`).join('')}
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <input id="pack-new" placeholder="Adicionar item da mala">
+        <button class="btn ghost sm" onclick="addPackItem()">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>👗 Looks do dia</h2>
+      <div class="note" style="margin-bottom:8px;">Planeje o que vai vestir em cada dia — usando a previsão do tempo (quando disponível) como referência.</div>
+      ${days.length? `<div class="progress-wrap"><div class="progress-bar" style="width:${Math.round(outfitsDone/days.length*100)}%"></div></div><div class="note">${outfitsPlanned} de ${days.length} planejados · ${outfitsDone} separados</div>` : ''}
+      <div style="margin-top:10px;">
+        ${days.length===0? '<div class="empty">Defina as datas da viagem para planejar os looks por dia.</div>' :
+          days.map((day,di)=>{
+            const outfit = outfitsByDate[day.date] || {description:'', done:false};
+            const dateObj = new Date(day.date+'T00:00:00');
+            const hint = weatherHintForDay(day);
+            return `
+            <div class="checkrow" style="align-items:flex-start;">
+              <input type="checkbox" ${outfit.done?'checked':''} onchange="toggleOutfitDone('${day.date}')" style="margin-top:5px;">
+              <div style="flex:1;min-width:180px;">
+                <div style="font-size:12.5px;font-weight:600;color:var(--ink);">Dia ${di+1} — ${dateObj.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})} ${hint?`<span class="note" style="font-weight:400;">${hint}</span>`:''}</div>
+                <input type="text" placeholder="Ex: vestido floral + tênis branco + jaqueta leve" value="${escapeHtml(outfit.description)}" onchange="updateOutfitDescription('${day.date}',this.value)" style="margin-top:4px;">
+              </div>
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+  `;
+  ds.forEach(d=>{
+    const w = currentTrip.packing.weatherByDest && currentTrip.packing.weatherByDest[d.id];
+    if(d.lat!=null && d.lng!=null && w) renderWeatherBox(d.id, w);
+  });
+}
+function weatherHintForDay(day){
+  const dest = currentTrip.destinations.find(d=>d.id===day.destinationId);
+  if(!dest) return '';
+  const w = currentTrip.packing.weatherByDest && currentTrip.packing.weatherByDest[dest.id];
+  if(!w) return '';
+  const match = w.days.find(d=>d.date===day.date);
+  if(!match) return '';
+  return `🌡️ ${Math.round(match.tmin)}–${Math.round(match.tmax)}°C${match.rain!=null&&match.rain>=40?' 🌧️':''}`;
+}
+async function updateOutfitDescription(date, value){
+  if(!currentTrip.packing.outfitsByDate) currentTrip.packing.outfitsByDate = {};
+  if(!currentTrip.packing.outfitsByDate[date]) currentTrip.packing.outfitsByDate[date] = {description:'', done:false};
+  currentTrip.packing.outfitsByDate[date].description = value;
+  await saveCurrentTrip();
+}
+async function toggleOutfitDone(date){
+  if(!currentTrip.packing.outfitsByDate) currentTrip.packing.outfitsByDate = {};
+  if(!currentTrip.packing.outfitsByDate[date]) currentTrip.packing.outfitsByDate[date] = {description:'', done:false};
+  currentTrip.packing.outfitsByDate[date].done = !currentTrip.packing.outfitsByDate[date].done;
+  await saveCurrentTrip();
+  renderSection();
+}
+/* Tries a direct fetch first; if that fails outright (e.g. a specific domain is blocked on this
+   network while others work fine — as confirmed happens with open-meteo.com for some users),
+   retries the same request through a public CORS proxy on a completely different domain. */
+async function fetchJsonRobust(url){
+  try{
+    const res = await fetch(url);
+    if(res.ok) return await res.json();
+  }catch(e){ console.error('fetch direto falhou', url, e); }
+  const proxies = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    'https://corsproxy.io/?url=' + encodeURIComponent(url),
+    'https://thingproxy.freeboard.io/fetch/' + url,
+  ];
+  for(const proxied of proxies){
+    try{
+      const res = await fetch(proxied);
+      if(res.ok) return await res.json();
+    }catch(e){ console.error('fetch via proxy também falhou', proxied, e); }
+  }
+  return null;
+}
+const CLIMATE_HISTORY_YEARS = 5; // quantos anos anteriores usar para calcular a média histórica
+
+async function fetchWeather(destId){
+  const d = currentTrip.destinations.find(x=>x.id===destId);
+  const box = document.getElementById('weather-box-'+destId);
+  box.innerHTML = 'Buscando previsão...';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(d.startDate+'T00:00:00');
+  const daysAhead = Math.round((start-today)/86400000);
+  try{
+    if(daysAhead>=0 && daysAhead<=15){
+      // Dentro do alcance de uma previsão real
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lng}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${d.startDate}&end_date=${d.endDate}`;
+      const data = await fetchJsonRobust(url);
+      if(data && data.daily && data.daily.time && data.daily.time.length){
+        const weather = {days:data.daily.time.map((dt,i)=>({
+          date:dt,
+          tmax:data.daily.temperature_2m_max[i],
+          tmin:data.daily.temperature_2m_min[i],
+          rain:data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[i] : null
+        })), isForecast:true, fetchedAt:new Date().toISOString()};
+        if(!currentTrip.packing.weatherByDest) currentTrip.packing.weatherByDest = {};
+        currentTrip.packing.weatherByDest[destId] = weather;
+        await saveCurrentTrip();
+        renderWeatherBox(destId, weather);
+        return;
+      }
+      throw new Error('Resposta sem dados diários');
+    } else {
+      // Viagem distante demais para uma previsão real: em vez de usar só o ano passado (que pode
+      // ter sido um ano atípico), busca vários anos anteriores e mostra a média histórica —
+      // mais representativa do "clima normal" dessa época do ano nessas coordenadas.
+      const weather = await fetchHistoricalAverage(d);
+      if(weather){
+        if(!currentTrip.packing.weatherByDest) currentTrip.packing.weatherByDest = {};
+        currentTrip.packing.weatherByDest[destId] = weather;
+        await saveCurrentTrip();
+        renderWeatherBox(destId, weather);
+        return;
+      }
+      throw new Error('Sem dados históricos suficientes');
+    }
+  }catch(e){
+    console.error('fetchWeather falhou', e);
+    renderWeatherManualForm(destId);
+  }
+}
+/* Fetches up to CLIMATE_HISTORY_YEARS previous years covering the same date range (month/day)
+   and averages them day-by-day, instead of relying on a single past year that could have been
+   unusually hot, cold, or rainy. Also turns rain into "% of those years it rained" rather than
+   a forecast probability, since historical archive data has no such probability field. */
+async function fetchHistoricalAverage(d){
+  const startBase = new Date(d.startDate+'T00:00:00');
+  const endBase = new Date(d.endDate+'T00:00:00');
+  const numDays = Math.round((endBase-startBase)/86400000) + 1;
+  const yearsData = [];
+  for(let y=1; y<=CLIMATE_HISTORY_YEARS; y++){
+    const ys = shiftYear(d.startDate,-y), ye = shiftYear(d.endDate,-y);
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${d.lat}&longitude=${d.lng}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&start_date=${ys}&end_date=${ye}`;
+    try{
+      const data = await fetchJsonRobust(url);
+      if(data && data.daily && data.daily.time && data.daily.time.length) yearsData.push(data.daily);
+    }catch(e){ /* esse ano falhou, tenta os outros */ }
+  }
+  if(yearsData.length===0) return null;
+  const days = [];
+  for(let i=0;i<numDays;i++){
+    const tmaxVals=[], tminVals=[], precipVals=[];
+    yearsData.forEach(yd=>{
+      if(yd.temperature_2m_max && yd.temperature_2m_max[i]!=null) tmaxVals.push(yd.temperature_2m_max[i]);
+      if(yd.temperature_2m_min && yd.temperature_2m_min[i]!=null) tminVals.push(yd.temperature_2m_min[i]);
+      if(yd.precipitation_sum && yd.precipitation_sum[i]!=null) precipVals.push(yd.precipitation_sum[i]);
+    });
+    if(tmaxVals.length===0) continue;
+    const avg = arr=>arr.reduce((s,v)=>s+v,0)/arr.length;
+    const rainyCount = precipVals.filter(p=>p>=1).length;
+    const rainPct = precipVals.length ? Math.round(rainyCount/precipVals.length*100) : null;
+    const dateForDay = new Date(startBase.getTime() + i*86400000).toISOString().slice(0,10);
+    days.push({date:dateForDay, tmax:avg(tmaxVals), tmin:avg(tminVals), rain:rainPct});
+  }
+  if(days.length===0) return null;
+  return {days, isForecast:false, isHistoricalAverage:true, yearsUsed:yearsData.length, fetchedAt:new Date().toISOString()};
+}
+function shiftYear(iso,delta){
+  const d = new Date(iso+'T00:00:00');
+  d.setFullYear(d.getFullYear()+delta);
+  return d.toISOString().slice(0,10);
+}
+/* Shown whenever the automatic forecast fails for any reason (network, CORS, no data for the
+   coordinates, etc). Lets the person type in the expected weather by hand so packing suggestions
+   keep working no matter what — this path never depends on the network. */
+function renderWeatherManualForm(destId){
+  const box = document.getElementById('weather-box-'+destId);
+  if(!box) return;
+  const existing = currentTrip.packing.weatherByDest && currentTrip.packing.weatherByDest[destId];
+  let defMin=18, defMax=28, defRain=0;
+  if(existing && existing.days && existing.days.length){
+    const maxes = existing.days.map(d=>d.tmax), mins = existing.days.map(d=>d.tmin);
+    defMax = Math.round(maxes.reduce((a,b)=>a+b,0)/maxes.length);
+    defMin = Math.round(mins.reduce((a,b)=>a+b,0)/mins.length);
+    const rains = existing.days.map(d=>d.rain).filter(r=>r!=null);
+    if(rains.length) defRain = Math.round(rains.reduce((a,b)=>a+b,0)/rains.length);
+  }
+  box.innerHTML = `
+    <div class="note" style="margin-bottom:8px;">${existing ? '💾 Preenchido com o último clima conhecido para este destino — ajuste se quiser:' : '⚠️ Não conseguimos buscar o clima automaticamente agora. Você pode pesquisar o clima típico da época e informar manualmente abaixo — isso ainda alimenta as sugestões de mala:'}</div>
+    <a href="#" target="_blank" rel="noopener" class="btn ghost sm" style="text-decoration:none;display:inline-block;margin-bottom:10px;" onclick="return prepareClimateSearchLink(this,'${destId}')">🔍 Pesquisar clima típico desse mês</a>
+    <div class="row">
+      <div class="field"><label>Mín (°C)</label><input id="wm-min-${destId}" type="number" value="${defMin}"></div>
+      <div class="field"><label>Máx (°C)</label><input id="wm-max-${destId}" type="number" value="${defMax}"></div>
+      <div class="field"><label>Chuva esperada?</label>
+        <select id="wm-rain-${destId}">
+          <option value="0" ${defRain<15?'selected':''}>Não</option>
+          <option value="30" ${defRain>=15&&defRain<50?'selected':''}>Um pouco</option>
+          <option value="70" ${defRain>=50?'selected':''}>Bastante</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <button type="button" class="btn brass sm" onclick="saveManualWeather('${destId}')">Salvar clima manual</button>
+      <button type="button" class="btn ghost sm" onclick="fetchWeather('${destId}')">🔄 Tentar buscar de novo</button>
+    </div>
+  `;
+}
+/* Sets the climate-search link's href right at click-time (same trick as the Google Maps link)
+   so it's a genuine user-clicked <a> navigation — reliable even where our own fetch() calls to
+   weather APIs are blocked, since it's just a normal link to a search results page. */
+function prepareClimateSearchLink(anchorEl, destId){
+  const d = currentTrip.destinations.find(x=>x.id===destId);
+  if(!d) return false;
+  const monthNames = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const month = monthNames[new Date(d.startDate+'T00:00:00').getMonth()];
+  const q = `clima em ${d.name} em ${month}`;
+  anchorEl.href = 'https://www.google.com/search?q=' + encodeURIComponent(q);
+  return true;
+}
+async function saveManualWeather(destId){
+  const d = currentTrip.destinations.find(x=>x.id===destId);
+  const tmin = parseFloat(document.getElementById('wm-min-'+destId).value)||0;
+  const tmax = parseFloat(document.getElementById('wm-max-'+destId).value)||0;
+  const rain = parseFloat(document.getElementById('wm-rain-'+destId).value)||0;
+  const weather = {days:[{date:d.startDate, tmin, tmax, rain}], isForecast:false, isManual:true, fetchedAt:new Date().toISOString()};
+  if(!currentTrip.packing.weatherByDest) currentTrip.packing.weatherByDest = {};
+  currentTrip.packing.weatherByDest[destId] = weather;
+  await saveCurrentTrip();
+  renderWeatherBox(destId, weather);
+}
+function renderWeatherBox(destId, weather){
+  const box = document.getElementById('weather-box-'+destId);
+  if(!box) return;
+  let banner = '';
+  if(weather.isManual) banner = '<div class="note">📝 Clima informado manualmente por você (estimativa).</div>';
+  else if(weather.isHistoricalAverage) banner = `<div class="note">📊 Viagem distante demais para uma previsão real — mostrando a <b>média histórica dos últimos ${weather.yearsUsed} ano${weather.yearsUsed!==1?'s':''}</b> para essas datas e coordenadas (não é uma previsão exata, é uma referência de "clima normal" da época).</div>`;
+  box.innerHTML = `
+    ${banner}
+    <div class="weathergrid">
+      ${weather.days.map(d=>`
+        <div class="wday">
+          <div class="d">${new Date(d.date+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</div>
+          <div class="t">${Math.round(d.tmin)}°–${Math.round(d.tmax)}°C</div>
+          ${d.rain!=null?`<div class="d">🌧️ ${d.rain}%${weather.isHistoricalAverage?' dos anos':''}</div>`:''}
+        </div>`).join('')}
+    </div>
+    <button type="button" class="btn ghost sm" style="margin-top:8px;" onclick="renderWeatherManualForm('${destId}')">✏️ Ajustar manualmente</button>
+  `;
+}
+function generateAllPackingSuggestions(){
+  const weatherByDest = currentTrip.packing.weatherByDest || {};
+  const allDays = Object.values(weatherByDest).flatMap(w=>w.days);
+  if(!allDays.length){ showToast('Busque a previsão do tempo de ao menos um destino primeiro.', true); return; }
+  generatePackingSuggestions({days:allDays});
+  saveCurrentTrip();
+  renderSection();
+}
+function generatePackingSuggestions(weather){
+  const maxes = weather.days.map(d=>d.tmax);
+  const mins = weather.days.map(d=>d.tmin);
+  const avgMax = maxes.reduce((s,v)=>s+v,0)/maxes.length;
+  const avgMin = mins.reduce((s,v)=>s+v,0)/mins.length;
+  const spread = Math.max(...maxes) - Math.min(...mins);
+  const rainDays = weather.days.filter(d=>d.rain!=null && d.rain>=40).length;
+  const tripDays = weather.days.length;
+  let suggestions = ['Documentos de viagem e cópias', 'Carregador e adaptador de tomada', 'Kit de higiene pessoal', 'Remédios de uso pessoal'];
+  if(avgMax>=27){ suggestions.push('Roupas leves e respiráveis','Protetor solar','Óculos de sol','Chapéu/boné','Sandálias'); }
+  else if(avgMax>=18){ suggestions.push('Camadas leves (camiseta + casaco leve)','Calça confortável'); }
+  else { suggestions.push('Casaco pesado / corta-vento','Cachecol, gorro e luvas','Roupas térmicas'); }
+  if(avgMin<=10){ suggestions.push('Meias térmicas','Roupa de dormir quentinha'); }
+  if(rainDays>0){ suggestions.push('Guarda-chuva compacto','Capa de chuva','Calçado impermeável'); }
+  if(spread>=15){ suggestions.push('Roupas em camadas (o clima varia bastante entre os destinos/dias)'); }
+  const outfitCount = Math.max(tripDays, Math.ceil(tripDays*1.2));
+  suggestions.push(`Roupas íntimas e meias para ${outfitCount} dias`, `Looks para ${tripDays} dias (considere repetir peças)`);
+  // merge: keep existing custom (non-auto) items, replace auto-generated ones
+  const custom = currentTrip.packing.items.filter(i=>!i.auto);
+  const autoItems = [...new Set(suggestions)].map(label=>({id:uid(), label, done:false, auto:true}));
+  currentTrip.packing.items = [...autoItems, ...custom];
+}
+async function togglePackItem(id){
+  const it = currentTrip.packing.items.find(i=>i.id===id);
+  it.done = !it.done;
+  await saveCurrentTrip();
+  renderSection();
+}
+async function removePackItem(id){
+  currentTrip.packing.items = currentTrip.packing.items.filter(i=>i.id!==id);
+  await saveCurrentTrip();
+  renderSection();
+}
+async function addPackItem(){
+  const val = document.getElementById('pack-new').value.trim();
+  if(!val) return;
+  currentTrip.packing.items.push({id:uid(), label:val, done:false, auto:false});
+  await saveCurrentTrip();
+  renderSection();
+}
+
+/* ================= DOCUMENTS ================= */
+const PRIORITY_META = {
+  alta: {icon:'🔴', label:'Alta', weight:0},
+  media: {icon:'🟡', label:'Média', weight:1},
+  baixa: {icon:'🟢', label:'Baixa', weight:2},
+};
+function sortDocuments(docs){
+  const pending = docs.filter(d=>!d.done).sort((a,b)=>{
+    const pa = a.priority ? PRIORITY_META[a.priority].weight : 3;
+    const pb = b.priority ? PRIORITY_META[b.priority].weight : 3;
+    if(pa!==pb) return pa-pb;
+    const da = a.dueDate || '9999-12-31', db = b.dueDate || '9999-12-31';
+    return da.localeCompare(db);
+  });
+  const done = docs.filter(d=>d.done);
+  return [...pending, ...done];
+}
+function dueDateBadgeHtml(d){
+  if(!d.dueDate) return '';
+  if(d.done) return `<span class="note" style="font-family:var(--font-mono);font-size:11px;margin-left:6px;">${fmtDateShort(d.dueDate)}</span>`;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(d.dueDate+'T00:00:00');
+  const diffDays = Math.round((due-today)/86400000);
+  let text, urgent = false;
+  if(diffDays<0){ text = `atrasado desde ${fmtDateShort(d.dueDate)}`; urgent=true; }
+  else if(diffDays===0){ text = 'vence hoje'; urgent=true; }
+  else if(diffDays<=3){ text = `vence em ${diffDays} dia${diffDays!==1?'s':''}`; urgent=true; }
+  else { text = `até ${fmtDateShort(d.dueDate)}`; }
+  return `<span class="resbadge ${urgent?'pending':'confirmed'}" style="font-family:var(--font-mono);">${text}</span>`;
+}
+function priorityTagHtml(p){
+  if(!p || !PRIORITY_META[p]) return '';
+  const meta = PRIORITY_META[p];
+  return `<span class="note" style="margin-left:2px;">${meta.icon} ${meta.label}</span>`;
+}
+function renderDocuments(c){
+  const docs = sortDocuments(currentTrip.documents);
+  const done = currentTrip.documents.filter(d=>d.done).length;
+  const total = currentTrip.documents.length;
+  c.innerHTML = `
+    <div class="card">
+      <h2>📋 Lista de tarefas (documentos e providências)</h2>
+      <div class="progress-wrap"><div class="progress-bar" style="width:${total?Math.round(done/total*100):0}%"></div></div>
+      <div class="note" style="margin-bottom:10px;">${done} de ${total} concluídos</div>
+      <div style="margin-top:6px;">
+        ${docs.length===0?'<div class="empty">Nenhuma tarefa ainda.</div>':docs.map(d=>`
+        <div class="checkrow ${d.done?'done':''}" style="align-items:flex-start;">
+          <input type="checkbox" ${d.done?'checked':''} onchange="toggleDoc('${d.id}')" style="margin-top:2px;">
+          <div style="flex:1;">
+            <span class="label">${escapeHtml(d.label)}</span>${priorityTagHtml(d.priority)}${dueDateBadgeHtml(d)}
+            ${d.notes?`<div class="note" style="margin-top:2px;">${escapeHtml(d.notes)}</div>`:''}
+          </div>
+          <button class="iconbtn" onclick="openDocumentModal('${d.id}')">✏️</button>
+          <button class="iconbtn" onclick="removeDoc('${d.id}')">🗑️</button>
+        </div>`).join('')}
+      </div>
+      <button class="btn brass sm" style="margin-top:14px;" onclick="openDocumentModal()">+ Adicionar tarefa</button>
+    </div>
+  `;
+}
+function openDocumentModal(id){
+  const editing = id ? currentTrip.documents.find(d=>d.id===id) : null;
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>${editing?'✏️ Editar tarefa':'+ Nova tarefa'}</h2>
+      <div class="field"><label>Descrição</label><input id="doc-label" placeholder="Ex: Renovar passaporte" value="${editing?escapeHtml(editing.label):''}"></div>
+      <div class="row">
+        <div class="field"><label>Data limite (opcional)</label><input id="doc-due" type="date" value="${editing&&editing.dueDate?editing.dueDate:''}"></div>
+        <div class="field"><label>Prioridade (opcional)</label>
+          <select id="doc-priority">
+            <option value="">Nenhuma</option>
+            <option value="alta" ${editing&&editing.priority==='alta'?'selected':''}>🔴 Alta</option>
+            <option value="media" ${editing&&editing.priority==='media'?'selected':''}>🟡 Média</option>
+            <option value="baixa" ${editing&&editing.priority==='baixa'?'selected':''}>🟢 Baixa</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Notas (opcional)</label><textarea id="doc-notes">${editing?escapeHtml(editing.notes||''):''}</textarea></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+        <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn brass" onclick="saveDocument(${editing?`'${id}'`:'null'})">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function saveDocument(id){
+  const label = document.getElementById('doc-label').value.trim();
+  const dueDate = document.getElementById('doc-due').value || null;
+  const priority = document.getElementById('doc-priority').value || null;
+  const notes = document.getElementById('doc-notes').value.trim();
+  if(!label){ showToast('Dê uma descrição para a tarefa.', true); return; }
+  if(id){
+    Object.assign(currentTrip.documents.find(d=>d.id===id), {label,dueDate,priority,notes});
+  } else {
+    currentTrip.documents.push({id:uid(), label, done:false, dueDate, priority, notes});
+  }
+  await saveCurrentTrip();
+  closeModal();
+  renderSection();
+}
+async function toggleDoc(id){
+  const d = currentTrip.documents.find(x=>x.id===id);
+  d.done = !d.done;
+  await saveCurrentTrip();
+  renderSection();
+}
+async function removeDoc(id){
+  currentTrip.documents = currentTrip.documents.filter(x=>x.id!==id);
+  await saveCurrentTrip();
+  renderSection();
+}
+
+/* ================= BUDGET ================= */
+function renderBudget(c){
+  const t = tripsIndex.find(x=>x.id===currentTripId);
+  const cats = currentTrip.budget.categories;
+  const estTotal = cats.reduce((s,b)=>s+(+b.estimated||0),0);
+  const actTotal = cats.reduce((s,b)=>s+(+b.actual||0),0);
+  const hasExpenses = currentTrip.expenses.length>0;
+  c.innerHTML = `
+    <div class="card">
+      <h2>💰 Orçamento (${t.currency})</h2>
+      ${hasExpenses?`<div class="note" style="margin-bottom:10px;">💡 Você tem despesas registradas na aba 🤝 Divisão. Clique em "usar rastreado" para copiar o total já gasto por categoria para o campo "Real".</div>`:''}
+      <table>
+        <thead><tr><th>Categoria</th><th>Previsto</th><th>Real</th>${hasExpenses?'<th>Rastreado</th>':''}<th></th></tr></thead>
+        <tbody>
+          ${cats.map(b=>{
+            const tracked = trackedActualByCategory(b.name);
+            const pct = (+b.estimated>0) ? Math.min(100, Math.round((+b.actual/ +b.estimated)*100)) : (+b.actual>0?100:0);
+            return `
+          <tr>
+            <td>
+              <input value="${escapeHtml(b.name)}" onchange="updateBudgetField('${b.id}','name',this.value)">
+              <div class="progress-wrap" style="margin:6px 0 0;"><div class="progress-bar" style="width:${pct}%;background:${(+b.actual)>(+b.estimated)&&(+b.estimated)>0?'var(--rust)':'var(--teal)'};"></div></div>
+            </td>
+            <td><input type="number" value="${b.estimated}" onchange="updateBudgetField('${b.id}','estimated',this.value)"></td>
+            <td><input type="number" value="${b.actual}" onchange="updateBudgetField('${b.id}','actual',this.value)"></td>
+            ${hasExpenses?`<td><span class="note" style="white-space:nowrap;">${tracked.toFixed(2)}</span>${tracked>0?` <button class="btn ghost sm" onclick="useTrackedActual('${b.id}')">usar</button>`:''}</td>`:''}
+            <td><button class="iconbtn" onclick="removeBudgetCat('${b.id}')">🗑️</button></td>
+          </tr>`;}).join('')}
+          <tr class="totalrow">
+            <td>Total</td><td>${estTotal.toFixed(2)}</td>
+            <td class="${actTotal>estTotal?'over':'under'}">${actTotal.toFixed(2)}</td>${hasExpenses?'<td></td>':''}<td></td>
+          </tr>
+        </tbody>
+      </table>
+      <button class="btn ghost sm" style="margin-top:12px;" onclick="addBudgetCat()">+ Adicionar categoria</button>
+      <div class="note" style="margin-top:10px;">${actTotal>estTotal? `⚠️ Você está ${(actTotal-estTotal).toFixed(2)} ${t.currency} acima do previsto.` : `✔️ Você ainda tem ${(estTotal-actTotal).toFixed(2)} ${t.currency} de margem no previsto.`}</div>
+    </div>
+  `;
+}
+function trackedActualByCategory(catName){
+  return currentTrip.expenses.filter(e=>e.category===catName).reduce((s,e)=>s+(+e.amountRef||0),0);
+}
+async function useTrackedActual(catId){
+  const cat = currentTrip.budget.categories.find(c=>c.id===catId);
+  cat.actual = Math.round(trackedActualByCategory(cat.name)*100)/100;
+  await saveCurrentTrip();
+  renderSection();
+}
+async function updateBudgetField(id, field, value){
+  const cat = currentTrip.budget.categories.find(c=>c.id===id);
+  cat[field] = field==='name' ? value : (parseFloat(value)||0);
+  await saveCurrentTrip();
+  renderSection();
+}
+async function addBudgetCat(){
+  currentTrip.budget.categories.push({id:uid(), name:'Nova categoria', estimated:0, actual:0});
+  await saveCurrentTrip();
+  renderSection();
+}
+async function removeBudgetCat(id){
+  currentTrip.budget.categories = currentTrip.budget.categories.filter(c=>c.id!==id);
+  await saveCurrentTrip();
+  renderSection();
+}
+
+/* ================= EXPENSE SPLITTING (Splitwise-style) ================= */
+function personName(id){ const p=currentTrip.people.find(x=>x.id===id); return p?p.name:'(pessoa removida)'; }
+function personColor(id){ const i=currentTrip.people.findIndex(x=>x.id===id); return i>=0?TRIP_COLORS[i%TRIP_COLORS.length]:'#999'; }
+function refCurrency(){ const t=tripsIndex.find(x=>x.id===currentTripId); return t?t.currency:'BRL'; }
+
+/* Converts a portion of an expense's original-currency amount into the trip's reference
+   currency, using the ratio between the expense's stored total and its converted total. */
+function toRefPortion(portionAmount, expense){
+  if(!expense.amount) return 0;
+  const rate = (expense.amountRef||0) / expense.amount;
+  return portionAmount * rate;
+}
+function computeBalances(){
+  const balances = {};
+  currentTrip.people.forEach(p=>{ balances[p.id]=0; });
+  currentTrip.expenses.forEach(e=>{
+    (e.paidBy||[]).forEach(p=>{ balances[p.personId] = (balances[p.personId]||0) + toRefPortion(p.amount,e); });
+    (e.splitAmong||[]).forEach(s=>{ balances[s.personId] = (balances[s.personId]||0) - toRefPortion(s.amount,e); });
+  });
+  currentTrip.settlements.forEach(s=>{
+    balances[s.from] = (balances[s.from]||0) + (+s.amountRef||0);
+    balances[s.to] = (balances[s.to]||0) - (+s.amountRef||0);
+  });
+  return balances;
+}
+/* Native (non-converted) balance per person per currency actually used — lets someone see
+   "you're owed 50 USD and owe 30 BRL" instead of only one blended number. */
+function computeNativeBalancesByCurrency(){
+  const result = {};
+  currentTrip.people.forEach(p=>{ result[p.id] = {}; });
+  currentTrip.expenses.forEach(e=>{
+    const cur = e.currency;
+    (e.paidBy||[]).forEach(p=>{
+      result[p.personId] = result[p.personId] || {};
+      result[p.personId][cur] = (result[p.personId][cur]||0) + p.amount;
+    });
+    (e.splitAmong||[]).forEach(s=>{
+      result[s.personId] = result[s.personId] || {};
+      result[s.personId][cur] = (result[s.personId][cur]||0) - s.amount;
+    });
+  });
+  currentTrip.settlements.forEach(s=>{
+    const cur = s.currency;
+    result[s.from] = result[s.from] || {};
+    result[s.from][cur] = (result[s.from][cur]||0) + (+s.amount||0);
+    result[s.to] = result[s.to] || {};
+    result[s.to][cur] = (result[s.to][cur]||0) - (+s.amount||0);
+  });
+  return result;
+}
+/* Detects expenses/settlements broken by the old amountRef-defaults-to-zero bug so they can be
+   repaired in one click instead of the person having to re-enter each one by hand. */
+function hasBrokenConversions(){
+  const ref = refCurrency();
+  return currentTrip.expenses.some(e=>e.currency!==ref && (!e.amountRef || e.amountRef<=0)) ||
+         currentTrip.settlements.some(s=>s.currency!==ref && (!s.amountRef || s.amountRef<=0));
+}
+async function repairBrokenConversions(){
+  const ref = refCurrency();
+  let fixed=0, failed=0;
+  for(const e of currentTrip.expenses){
+    if(e.currency!==ref && (!e.amountRef || e.amountRef<=0)){
+      const converted = await convertViaApi(e.currency, ref, e.amount);
+      if(converted!=null){ e.amountRef = converted; fixed++; } else failed++;
+    }
+  }
+  for(const s of currentTrip.settlements){
+    if(s.currency!==ref && (!s.amountRef || s.amountRef<=0)){
+      const converted = await convertViaApi(s.currency, ref, s.amount);
+      if(converted!=null){ s.amountRef = converted; fixed++; } else failed++;
+    }
+  }
+  if(fixed>0) await saveCurrentTrip();
+  showToast(fixed>0 ? `✅ ${fixed} valor(es) corrigido(s).` : 'Não foi possível corrigir agora — tente de novo mais tarde.', fixed===0);
+  renderSection();
+}
+/* Minimal-transaction debt simplification, same approach Splitwise uses. */
+function simplifyDebts(balances){
+  const creditors=[], debtors=[];
+  Object.entries(balances).forEach(([id,amt])=>{
+    if(amt>0.01) creditors.push({id,amt});
+    else if(amt<-0.01) debtors.push({id,amt:-amt});
+  });
+  creditors.sort((a,b)=>b.amt-a.amt);
+  debtors.sort((a,b)=>b.amt-a.amt);
+  const transactions=[];
+  let i=0,j=0;
+  while(i<debtors.length && j<creditors.length){
+    const pay = Math.min(debtors[i].amt, creditors[j].amt);
+    if(pay>0.01) transactions.push({from:debtors[i].id, to:creditors[j].id, amount:pay});
+    debtors[i].amt -= pay; creditors[j].amt -= pay;
+    if(debtors[i].amt<0.01) i++;
+    if(creditors[j].amt<0.01) j++;
+  }
+  return transactions;
+}
+async function convertViaApi(from,to,amount){
+  if(from.toLowerCase()===to.toLowerCase()) return amount;
+  const f=from.toLowerCase(), t=to.toLowerCase();
+  const urls = [
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${f}.json`,
+    `https://latest.currency-api.pages.dev/v1/currencies/${f}.json`
+  ];
+  for(const url of urls){
+    try{
+      const res = await fetch(url);
+      if(!res.ok) continue;
+      const data = await res.json();
+      const rate = data[f] && data[f][t];
+      if(rate!=null) return amount*rate;
+    }catch(e){ /* tenta a próxima fonte */ }
+  }
+  return null;
+}
+/* State for the "view balances in another currency" switcher and the "today's rate" lookups
+   used to annotate native-currency balances with a live reference-currency equivalent. */
+let splittingDisplayCurrency = null; // null = usa a moeda de referência da viagem
+let splittingDisplayRate = 1;
+let todayConversionRates = {}; // 'USD_BRL' -> rate (sessão atual)
+function getBestKnownRate(from,to){
+  if(from.toUpperCase()===to.toUpperCase()) return 1;
+  const key = from.toUpperCase()+'_'+to.toUpperCase();
+  if(todayConversionRates[key]!=null) return todayConversionRates[key];
+  if(currencyRateCache[key]) return currencyRateCache[key].rate;
+  return null;
+}
+async function refreshTodayConversions(){
+  const ref = refCurrency();
+  const currencies = new Set();
+  currentTrip.expenses.forEach(e=>{ if(e.currency && e.currency!==ref) currencies.add(e.currency); });
+  currentTrip.settlements.forEach(s=>{ if(s.currency && s.currency!==ref) currencies.add(s.currency); });
+  if(currencies.size===0){ showToast('Não há despesas em outra moeda nesta viagem.', false); return; }
+  showToast('Buscando cotações de hoje...', false);
+  let ok=0;
+  for(const cur of currencies){
+    const rate = await convertViaApi(cur, ref, 1);
+    if(rate!=null){
+      todayConversionRates[cur.toUpperCase()+'_'+ref.toUpperCase()] = rate;
+      currencyRateCache[cur.toUpperCase()+'_'+ref.toUpperCase()] = {rate, date:new Date().toISOString().slice(0,10), manual:false};
+      ok++;
+    }
+  }
+  if(ok>0) saveCurrencyCache();
+  showToast(ok>0 ? `✅ Cotações de hoje atualizadas (${ok}).` : 'Não foi possível buscar agora — tente novamente mais tarde.', ok===0);
+  renderSection();
+}
+async function changeSplittingDisplayCurrency(newCurrency){
+  const ref = refCurrency();
+  if(newCurrency===ref){ splittingDisplayCurrency=null; splittingDisplayRate=1; renderSection(); return; }
+  showToast('Buscando cotação...', false);
+  const rate = await convertViaApi(ref, newCurrency, 1);
+  if(rate==null){
+    showToast('Não foi possível converter agora — mostrando na moeda de referência.', true);
+    splittingDisplayCurrency=null; splittingDisplayRate=1;
+  } else {
+    splittingDisplayCurrency = newCurrency;
+    splittingDisplayRate = rate;
+    currencyRateCache[ref.toUpperCase()+'_'+newCurrency.toUpperCase()] = {rate, date:new Date().toISOString().slice(0,10), manual:false};
+    saveCurrencyCache();
+  }
+  renderSection();
+}
+
+function renderSplitting(c){
+  const people = currentTrip.people;
+  const refCurr = refCurrency();
+  const displayCurr = splittingDisplayCurrency || refCurr;
+  const balances = computeBalances();
+  const nativeBalances = computeNativeBalancesByCurrency();
+  const transactions = simplifyDebts(balances);
+  const broken = hasBrokenConversions();
+  c.innerHTML = `
+    <div class="card">
+      <h2>🤝 Divisão de despesas</h2>
+      <div class="note" style="margin-bottom:10px;">Registre quem pagou o quê e veja automaticamente quem deve o quê para quem — como no Splitwise. Cada despesa pode ser lançada em qualquer moeda; os saldos combinados usam <b>${refCurr}</b> (a moeda de referência da viagem, ajustável em ✏️ Editar viagem) como base de cálculo.</div>
+      ${broken?`<div class="banner"><span>⚠️ Detectamos despesas com a conversão zerada por um bug já corrigido — os saldos delas estavam errados.</span><button class="btn ghost sm" onclick="repairBrokenConversions()">🔧 Corrigir agora</button></div>`:''}
+      <div class="row">
+        <button class="btn ghost sm" onclick="openPeopleModal()">👥 Gerenciar pessoas (${people.length})</button>
+        <button class="btn brass" onclick="openExpenseModal()">+ Nova despesa</button>
+        <button class="btn ghost sm" onclick="openSettlementModal()">🧾 Registrar pagamento manual</button>
+        <button class="btn ghost sm" onclick="exportExpensesCsv()">📊 Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⚖️ Saldos</h2>
+      <div class="row" style="align-items:flex-end;margin-bottom:6px;">
+        <div class="field" style="max-width:200px;">
+          <label>Ver total combinado em</label>
+          <input list="dl-all-currencies" value="${escapeHtml(displayCurr)}" style="text-transform:uppercase;" onchange="changeSplittingDisplayCurrency(this.value.trim().toUpperCase())">
+        </div>
+        <button class="btn ghost sm" onclick="refreshTodayConversions()">🔄 Atualizar conversões de hoje</button>
+      </div>
+      ${displayCurr!==refCurr?`<div class="note" style="margin-bottom:8px;">Convertido de ${refCurr} para ${displayCurr} à cotação de hoje: 1 ${refCurr} = ${splittingDisplayRate.toFixed(4)} ${displayCurr}.</div>`:''}
+      ${people.length===0 ? '<div class="empty">Adicione as pessoas envolvidas na viagem para começar (botão "Gerenciar pessoas" acima).</div>' :
+        `<div class="grid3">
+          ${people.map(p=>{
+            const bal = balances[p.id]||0;
+            const displayBal = bal * (displayCurr!==refCurr ? splittingDisplayRate : 1);
+            const cls = bal>=0?'under':'over';
+            const nativeLines = Object.entries(nativeBalances[p.id]||{}).filter(([,amt])=>Math.abs(amt)>0.01).map(([cur,amt])=>{
+              let convNote = '';
+              if(cur!==refCurr){
+                const rate = getBestKnownRate(cur, refCurr);
+                if(rate!=null) convNote = ` <span style="color:var(--text-soft);">≈ ${refCurr} ${(amt*rate).toFixed(2)} hoje</span>`;
+              }
+              return `<div style="font-size:11.5px;font-family:var(--font-mono);">${cur} ${amt>=0?'+':''}${amt.toFixed(2)}${convNote}</div>`;
+            }).join('');
+            return `<div class="tzcard" style="border-top:4px solid ${personColor(p.id)};">
+              <div class="place">${escapeHtml(p.name)}</div>
+              <div class="time ${cls}" style="font-size:17px;">${displayBal>=0?'+':''}${displayBal.toFixed(2)} ${displayCurr}</div>
+              <div class="off">${bal>0.01?'vai receber':bal<-0.01?'está devendo':'quitado(a)'}</div>
+              ${nativeLines?`<div style="margin-top:6px;border-top:1px dashed var(--line);padding-top:6px;">${nativeLines}</div>`:''}
+            </div>`;
+          }).join('')}
+        </div>`}
+    </div>
+
+    <div class="card">
+      <h2>💸 Quem deve pagar quem</h2>
+      <div class="note" style="margin-bottom:8px;">Calculado em ${refCurr} (a única forma de somar despesas de moedas diferentes de forma consistente).</div>
+      ${people.length===0 ? '<div class="note">Adicione pessoas e despesas para ver aqui quem deve pagar quem.</div>' :
+        transactions.length===0 ? '<div class="empty">Tudo certo! Ninguém deve nada no momento. 🎉</div>' :
+        transactions.map(t=>`
+        <div class="booking-card">
+          <div class="item-meta" style="font-size:14px;color:var(--text);">
+            <b>${escapeHtml(personName(t.from))}</b> deve pagar <b>${t.amount.toFixed(2)} ${refCurr}</b> para <b>${escapeHtml(personName(t.to))}</b>
+            ${displayCurr!==refCurr?`<br><span style="font-size:12px;color:var(--text-soft);">≈ ${(t.amount*splittingDisplayRate).toFixed(2)} ${displayCurr} à cotação de hoje</span>`:''}
+          </div>
+          <button class="btn ghost sm" onclick="quickSettle('${t.from}','${t.to}',${t.amount})">✔️ Marcar como pago</button>
+        </div>`).join('')}
+    </div>
+
+    <div class="card">
+      <h2>📜 Despesas registradas</h2>
+      ${currentTrip.expenses.length===0? '<div class="empty">Nenhuma despesa registrada ainda.</div>' :
+        [...currentTrip.expenses].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>renderExpenseRow(e)).join('')}
+    </div>
+
+    <div class="card">
+      <h2>🧾 Pagamentos registrados entre pessoas</h2>
+      ${currentTrip.settlements.length===0? '<div class="note">Nenhum pagamento registrado ainda.</div>' :
+        currentTrip.settlements.map(s=>`
+        <div class="booking-card">
+          <div class="item-meta">${escapeHtml(personName(s.from))} pagou ${escapeHtml(personName(s.to))}: <b>${(+s.amount).toFixed(2)} ${s.currency}</b>${s.date?' · '+fmtDateShort(s.date):''}${s.note?' · '+escapeHtml(s.note):''}</div>
+          <button class="iconbtn" onclick="removeSettlement('${s.id}')">🗑️</button>
+        </div>`).join('')}
+    </div>
+  `;
+}
+function renderExpenseRow(e){
+  const payers = (e.paidBy||[]).map(p=>`${escapeHtml(personName(p.personId))} (${(+p.amount).toFixed(2)})`).join(', ');
+  const among = (e.splitAmong||[]).map(s=>escapeHtml(personName(s.personId))).join(', ');
+  return `
+  <div class="booking-card">
+    <div>
+      <div style="font-weight:600;">${escapeHtml(e.description)} <span class="code">${(+e.amount).toFixed(2)} ${e.currency}</span></div>
+      <div class="item-meta">${e.date?fmtDateShort(e.date)+' · ':''}${e.category?escapeHtml(e.category)+' · ':''}pago por ${payers}</div>
+      <div class="item-meta">dividido entre: ${among}</div>
+      ${e.notes?`<div class="item-meta">${escapeHtml(e.notes)}</div>`:''}
+    </div>
+    <div class="item-actions">
+      <button class="iconbtn" onclick="openExpenseModal('${e.id}')">✏️</button>
+      <button class="iconbtn" onclick="removeExpense('${e.id}')">🗑️</button>
+    </div>
+  </div>`;
+}
+
+/* ---- People management ---- */
+function openPeopleModal(){
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this){ closeModal(); renderSection(); }">
+    <div class="modal">
+      <h2>👥 Pessoas da viagem</h2>
+      <div class="note" style="margin-bottom:10px;">Adicione todos que estão dividindo despesas nesta viagem (inclusive você).</div>
+      <div id="people-list">
+        ${currentTrip.people.map(p=>`
+          <div class="checkrow">
+            <span style="width:12px;height:12px;border-radius:50%;background:${personColor(p.id)};display:inline-block;flex:0 0 auto;"></span>
+            <span class="label">${escapeHtml(p.name)}</span>
+            <button class="iconbtn" style="margin-left:auto;" onclick="removePerson('${p.id}')">🗑️</button>
+          </div>`).join('') || '<div class="note">Nenhuma pessoa adicionada ainda.</div>'}
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <input id="new-person-name" placeholder="Nome da pessoa">
+        <button class="btn ghost sm" onclick="addPerson()">+ Adicionar</button>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:18px;">
+        <button class="btn brass" onclick="closeModal(); renderSection();">Concluir</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function addPerson(){
+  const input = document.getElementById('new-person-name');
+  const name = input.value.trim();
+  if(!name) return;
+  currentTrip.people.push({id:uid(), name});
+  await saveCurrentTrip();
+  openPeopleModal();
+}
+async function removePerson(id){
+  const inUse = currentTrip.expenses.some(e=>(e.paidBy||[]).some(p=>p.personId===id) || (e.splitAmong||[]).some(s=>s.personId===id)) ||
+    currentTrip.settlements.some(s=>s.from===id||s.to===id);
+  if(inUse && !(await showConfirm('Essa pessoa já está associada a despesas ou pagamentos registrados. Remover mesmo assim? Os valores dela deixarão de ser contados nos saldos.'))) return;
+  currentTrip.people = currentTrip.people.filter(p=>p.id!==id);
+  await saveCurrentTrip();
+  openPeopleModal();
+}
+
+/* ---- Expense CRUD ---- */
+function openExpenseModal(id){
+  const editing = id ? currentTrip.expenses.find(e=>e.id===id) : null;
+  const newId = editing ? editing.id : uid();
+  const people = currentTrip.people;
+  if(people.length===0){ showToast('Adicione ao menos uma pessoa antes de registrar despesas (👥 Gerenciar pessoas).', true); return; }
+  const catOptions = currentTrip.budget.categories.map(cc=>cc.name);
+  const firstDest = currentTrip.destinations[0];
+  const defCurrency = editing ? editing.currency : (firstDest ? firstDest.currency : refCurrency());
+
+  function payerRow(p){
+    const paid = editing ? (editing.paidBy||[]).find(x=>x.personId===p.id) : null;
+    return `
+    <div class="row" style="align-items:center;gap:8px;margin-bottom:4px;">
+      <input type="checkbox" id="pay-chk-${p.id}" ${paid?'checked':''} style="width:18px;height:18px;flex:0 0 auto;">
+      <span style="flex:1;min-width:70px;">${escapeHtml(p.name)}</span>
+      <input type="number" id="pay-amt-${p.id}" step="0.01" value="${paid?paid.amount:''}" style="max-width:100px;" placeholder="0,00">
+      <button type="button" class="btn ghost sm" onclick="setSolePayer('${p.id}')" title="Essa pessoa pagou tudo">tudo</button>
+    </div>`;
+  }
+  function splitRow(p){
+    const s = editing ? (editing.splitAmong||[]).find(x=>x.personId===p.id) : null;
+    const checkedDefault = editing ? !!s : true;
+    return `
+    <div class="row" style="align-items:center;gap:8px;margin-bottom:4px;">
+      <input type="checkbox" id="split-chk-${p.id}" ${checkedDefault?'checked':''} style="width:18px;height:18px;flex:0 0 auto;">
+      <span style="flex:1;min-width:70px;">${escapeHtml(p.name)}</span>
+      <input type="number" id="split-amt-${p.id}" step="0.01" value="${s?s.amount:''}" style="max-width:100px;" placeholder="0,00">
+    </div>`;
+  }
+
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal" style="max-width:580px;">
+      <h2>${editing?'✏️ Editar despesa':'+ Nova despesa'}</h2>
+      <div class="field"><label>Descrição</label><input id="exp-desc" placeholder="Ex: Jantar no Ohana" value="${editing?escapeHtml(editing.description):''}"></div>
+      <div class="row">
+        <div class="field"><label>Categoria</label><select id="exp-cat">${catOptions.map(cc=>`<option ${editing&&editing.category===cc?'selected':''}>${escapeHtml(cc)}</option>`).join('')}</select></div>
+        <div class="field"><label>Data</label><input id="exp-date" type="date" value="${editing?editing.date||'':''}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Moeda</label>${currencyInputHtml('exp-curr', defCurrency)}</div>
+        <div class="field"><label>Valor total</label><input id="exp-amount" type="number" step="0.01" value="${editing?editing.amount:''}"></div>
+      </div>
+      <div class="field">
+        <label>Equivalente em ${refCurrency()} (usado para calcular os saldos)</label>
+        <div style="display:flex;gap:6px;">
+          <input id="exp-amountref" type="number" step="0.01" value="${editing?editing.amountRef:''}">
+          <button type="button" class="btn ghost sm" onclick="convertExpenseAmount()">🔄 Converter</button>
+        </div>
+      </div>
+      <h3 style="margin-top:14px;">💰 Quem pagou?</h3>
+      <div class="note" style="margin-bottom:4px;">Marque quem pagou e quanto (na moeda escolhida acima), ou clique "tudo" se foi só uma pessoa.</div>
+      <div id="exp-payers">${people.map(payerRow).join('')}</div>
+      <h3 style="margin-top:14px;">⚖️ Dividir entre</h3>
+      <div class="note" style="margin-bottom:4px;">Marque quem participa desta despesa. <button type="button" class="iconbtn" style="text-decoration:underline;font-size:12px;padding:0;" onclick="splitEqually()">dividir igualmente entre os marcados</button></div>
+      <div id="exp-split">${people.map(splitRow).join('')}</div>
+      <div class="field" style="margin-top:10px;"><label>Notas</label><textarea id="exp-notes">${editing?escapeHtml(editing.notes||''):''}</textarea></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+        <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn brass" onclick="saveExpense('${newId}')">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+}
+function setSolePayer(personId){
+  const total = parseFloat(document.getElementById('exp-amount').value)||0;
+  currentTrip.people.forEach(p=>{
+    const chk = document.getElementById('pay-chk-'+p.id);
+    const amt = document.getElementById('pay-amt-'+p.id);
+    if(p.id===personId){ chk.checked=true; amt.value=total.toFixed(2); }
+    else { chk.checked=false; amt.value=''; }
+  });
+}
+function splitEqually(){
+  const total = parseFloat(document.getElementById('exp-amount').value)||0;
+  const checked = currentTrip.people.filter(p=>document.getElementById('split-chk-'+p.id).checked);
+  if(checked.length===0){ showToast('Marque ao menos uma pessoa para dividir.', true); return; }
+  const share = Math.floor((total/checked.length)*100)/100;
+  const remainder = Math.round((total - share*checked.length)*100)/100;
+  checked.forEach((p,i)=>{
+    const amt = (i===0) ? Math.round((share+remainder)*100)/100 : share;
+    document.getElementById('split-amt-'+p.id).value = amt.toFixed(2);
+  });
+  currentTrip.people.filter(p=>!checked.includes(p)).forEach(p=>{
+    document.getElementById('split-amt-'+p.id).value = '';
+  });
+}
+async function convertExpenseAmount(){
+  const from = document.getElementById('exp-curr').value.trim().toUpperCase();
+  const to = refCurrency();
+  const amount = parseFloat(document.getElementById('exp-amount').value)||0;
+  const result = await convertViaApi(from,to,amount);
+  if(result!=null) document.getElementById('exp-amountref').value = result.toFixed(2);
+  else showToast('Conversão indisponível agora — preencha o valor equivalente manualmente.', true);
+}
+async function saveExpense(id){
+  const description = document.getElementById('exp-desc').value.trim();
+  const category = document.getElementById('exp-cat').value;
+  const date = document.getElementById('exp-date').value;
+  const currency = document.getElementById('exp-curr').value.trim().toUpperCase();
+  const amount = parseFloat(document.getElementById('exp-amount').value)||0;
+  let amountRef = parseFloat(document.getElementById('exp-amountref').value);
+  const notes = document.getElementById('exp-notes').value.trim();
+  if(!description || amount<=0){ showToast('Preencha a descrição e um valor total maior que zero.', true); return; }
+
+  if(currency===refCurrency()){
+    if(isNaN(amountRef) || amountRef<=0) amountRef = amount;
+  } else if(isNaN(amountRef) || amountRef<=0){
+    // Última tentativa: buscar a conversão automaticamente antes de bloquear o salvamento
+    const auto = await convertViaApi(currency, refCurrency(), amount);
+    if(auto!=null){
+      amountRef = auto;
+    } else {
+      showToast(`Informe o valor equivalente em ${refCurrency()} (clique em "🔄 Converter" ou digite manualmente) antes de salvar — isso é essencial para o cálculo dos saldos ficar correto.`, true);
+      return;
+    }
+  }
+
+  const paidBy = currentTrip.people.filter(p=>document.getElementById('pay-chk-'+p.id).checked)
+    .map(p=>({personId:p.id, amount:parseFloat(document.getElementById('pay-amt-'+p.id).value)||0}));
+  const splitAmong = currentTrip.people.filter(p=>document.getElementById('split-chk-'+p.id).checked)
+    .map(p=>({personId:p.id, amount:parseFloat(document.getElementById('split-amt-'+p.id).value)||0}));
+
+  if(paidBy.length===0){ showToast('Marque quem pagou essa despesa.', true); return; }
+  if(splitAmong.length===0){ showToast('Marque entre quem essa despesa deve ser dividida.', true); return; }
+
+  const paidSum = Math.round(paidBy.reduce((s,p)=>s+p.amount,0)*100)/100;
+  const splitSum = Math.round(splitAmong.reduce((s,p)=>s+p.amount,0)*100)/100;
+  if(Math.abs(paidSum-amount)>0.02){ showToast(`A soma de quem pagou (${paidSum.toFixed(2)}) precisa bater com o valor total (${amount.toFixed(2)}).`, true); return; }
+  if(Math.abs(splitSum-amount)>0.02){ showToast(`A soma da divisão (${splitSum.toFixed(2)}) precisa bater com o valor total (${amount.toFixed(2)}). Use "dividir igualmente" ou ajuste os valores.`, true); return; }
+
+  let expense = currentTrip.expenses.find(e=>e.id===id);
+  if(!expense){ expense = {id}; currentTrip.expenses.push(expense); }
+  Object.assign(expense, {description,category,date,currency,amount,amountRef,paidBy,splitAmong,notes});
+  await saveCurrentTrip();
+  closeModal();
+  renderSection();
+}
+async function removeExpense(id){
+  if(!(await showConfirm('Remover esta despesa?'))) return;
+  currentTrip.expenses = currentTrip.expenses.filter(e=>e.id!==id);
+  await saveCurrentTrip();
+  renderSection();
+}
+
+/* ---- Manual settlements (recording an actual payment made between two people) ---- */
+function openSettlementModal(){
+  const people = currentTrip.people;
+  if(people.length<2){ showToast('Adicione ao menos duas pessoas para registrar um pagamento entre elas.', true); return; }
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>🧾 Registrar pagamento</h2>
+      <div class="row">
+        <div class="field"><label>Quem pagou</label><select id="st-from">${people.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Para quem</label><select id="st-to">${people.map((p,i)=>`<option value="${p.id}" ${i===1?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Moeda</label>${currencyInputHtml('st-curr', refCurrency())}</div>
+        <div class="field"><label>Valor</label><input id="st-amount" type="number" step="0.01"></div>
+      </div>
+      <div class="field"><label>Equivalente em ${refCurrency()}</label>
+        <div style="display:flex;gap:6px;"><input id="st-amountref" type="number" step="0.01"><button type="button" class="btn ghost sm" onclick="convertSettlementAmount()">🔄 Converter</button></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Data</label><input id="st-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="field"><label>Nota</label><input id="st-note" placeholder="Ex: Pix"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+        <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn brass" onclick="saveSettlement()">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function convertSettlementAmount(){
+  const from = document.getElementById('st-curr').value.trim().toUpperCase();
+  const to = refCurrency();
+  const amount = parseFloat(document.getElementById('st-amount').value)||0;
+  const result = await convertViaApi(from,to,amount);
+  if(result!=null) document.getElementById('st-amountref').value = result.toFixed(2);
+  else showToast('Conversão indisponível — preencha manualmente.', true);
+}
+async function saveSettlement(){
+  const from = document.getElementById('st-from').value;
+  const to = document.getElementById('st-to').value;
+  const currency = document.getElementById('st-curr').value.trim().toUpperCase();
+  const amount = parseFloat(document.getElementById('st-amount').value)||0;
+  let amountRef = parseFloat(document.getElementById('st-amountref').value);
+  const date = document.getElementById('st-date').value;
+  const note = document.getElementById('st-note').value.trim();
+  if(from===to){ showToast('Selecione duas pessoas diferentes.', true); return; }
+  if(amount<=0){ showToast('Informe um valor maior que zero.', true); return; }
+  if(currency===refCurrency()){
+    if(isNaN(amountRef) || amountRef<=0) amountRef = amount;
+  } else if(isNaN(amountRef) || amountRef<=0){
+    const auto = await convertViaApi(currency, refCurrency(), amount);
+    if(auto!=null){ amountRef = auto; }
+    else { showToast(`Informe o valor equivalente em ${refCurrency()} antes de salvar.`, true); return; }
+  }
+  currentTrip.settlements.push({id:uid(), from, to, amount, currency, amountRef, date, note});
+  await saveCurrentTrip();
+  closeModal();
+  renderSection();
+}
+async function removeSettlement(id){
+  currentTrip.settlements = currentTrip.settlements.filter(s=>s.id!==id);
+  await saveCurrentTrip();
+  renderSection();
+}
+async function quickSettle(fromId,toId,amount){
+  if(!(await showConfirm(`Registrar que ${personName(fromId)} pagou ${amount.toFixed(2)} ${refCurrency()} para ${personName(toId)}?`))) return;
+  currentTrip.settlements.push({id:uid(), from:fromId, to:toId, amount, currency:refCurrency(), amountRef:amount, date:new Date().toISOString().slice(0,10), note:'Quitação sugerida'});
+  await saveCurrentTrip();
+  renderSection();
+}
+
+init();
+</script>
+</body>
+</html>
