@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
@@ -271,6 +272,62 @@
   .wday .t{font-family:var(--font-mono);font-weight:600;font-size:14px;margin-top:4px;}
   .note{font-size:12px;color:var(--text-soft);margin-top:8px;}
   ::selection{background:var(--brass);color:#fff;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+  /* ---------- Mobile (phones) ---------- */
+  @media (max-width:640px){
+    body{padding-bottom:env(safe-area-inset-bottom);}
+    .brandbar{padding:14px 16px 12px;gap:8px;}
+    .brand .mark{font-size:18px;}
+    .brand .tag{display:none;}
+    .brandbar > div:last-child{gap:8px !important;flex-wrap:wrap;justify-content:flex-end;}
+    .brandbar .btn.ghost.sm{padding:7px 10px;font-size:12px;}
+    .stat{display:none;}
+
+    .tabsrow{padding:12px 16px 0;gap:8px;}
+    .tab{min-width:120px;padding:9px 14px 14px;}
+    .tab .t-name{font-size:14px;}
+
+    .tripband{padding:14px 16px;gap:10px;}
+    .tripband h1{font-size:19px;}
+    .tripband .dest{font-size:11.5px;}
+    .stampbadge{width:60px;height:60px;}
+    .stampbadge .n{font-size:17px;}
+    .stampbadge .l{font-size:7.5px;}
+
+    .navpills{padding:10px 16px;gap:6px;}
+    .pill{padding:7px 12px;font-size:12.5px;}
+
+    .content{padding:14px 12px 60px;}
+    .card{padding:15px 14px;margin-bottom:14px;}
+    .card h2{font-size:17px;}
+
+    /* Evita o zoom automático do iOS ao tocar em campos de texto */
+    input,select,textarea{font-size:16px;padding:10px 11px;}
+    label{font-size:12.5px;}
+    .btn{padding:10px 14px;font-size:13.5px;}
+    .btn.sm{padding:8px 12px;font-size:12.5px;}
+    .iconbtn{font-size:17px;padding:6px 8px;}
+    .checkrow input[type=checkbox]{width:21px;height:21px;}
+    .row{gap:8px;}
+
+    .modal-bg{padding:0;align-items:flex-end;}
+    .modal{max-width:100%;width:100%;border-radius:18px 18px 0 0;max-height:94vh;padding:20px 16px calc(20px + env(safe-area-inset-bottom));}
+
+    .board{gap:10px;}
+    .board-col{flex:0 0 84vw;max-height:none;}
+    .board-col-body{max-height:56vh;}
+
+    #mapview{height:300px;}
+    #item-map-mini{height:180px !important;}
+
+    .grid3{gap:10px;}
+    .weathergrid{gap:8px;}
+    .wday{min-width:66px;padding:8px 9px;}
+
+    table{font-size:12px;}
+    th,td{padding:6px 5px;}
+  }
 </style>
 </head>
 <body>
@@ -2960,6 +3017,7 @@ function renderBudget(c){
     <div class="card">
       <h2>💰 Orçamento (${t.currency})</h2>
       ${hasExpenses?`<div class="note" style="margin-bottom:10px;">💡 Você tem despesas registradas na aba 🤝 Divisão. Clique em "usar rastreado" para copiar o total já gasto por categoria para o campo "Real".</div>`:''}
+      <div class="table-scroll">
       <table>
         <thead><tr><th>Categoria</th><th>Previsto</th><th>Real</th>${hasExpenses?'<th>Rastreado</th>':''}<th></th></tr></thead>
         <tbody>
@@ -2983,6 +3041,7 @@ function renderBudget(c){
           </tr>
         </tbody>
       </table>
+      </div>
       <button class="btn ghost sm" style="margin-top:12px;" onclick="addBudgetCat()">+ Adicionar categoria</button>
       <div class="note" style="margin-top:10px;">${actTotal>estTotal? `⚠️ Você está ${(actTotal-estTotal).toFixed(2)} ${t.currency} acima do previsto.` : `✔️ Você ainda tem ${(estTotal-actTotal).toFixed(2)} ${t.currency} de margem no previsto.`}</div>
     </div>
