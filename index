@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
 <title>Diário de Bordo — Planejador de Viagem</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Playfair+Display:wght@600;700&family=Merriweather:wght@400;700&family=Poppins:wght@400;500;600;700&family=Lora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -644,19 +645,82 @@ function readCurrencyInput(id){
   return el ? el.value.trim().toUpperCase() : '';
 }
 
+let appLockPin = null;
 async function init(){
   tripsIndex = await storGet('trips-index') || [];
   currencyRateCache = await storGet('currency-rate-cache') || {};
   loadAllCurrencies(); // não bloqueia o primeiro render; atualiza o datalist quando terminar
   await loadTheme();
+  appLockPin = await storGet('app-lock-pin');
   if(tripsIndex.length){
     currentTripId = tripsIndex[0].id;
     const meta = tripsIndex[0];
     currentTrip = ensureTripShape(await storGet('trip-data:'+currentTripId) || emptyTripData(), meta);
   }
-  render();
+  if(appLockPin) renderLockScreen(); else render();
 }
 async function saveCurrencyCache(){ await storSet('currency-rate-cache', currencyRateCache); }
+
+/* ---------- Optional password lock (deterrence, not real security — everything runs
+   client-side and is visible in the page source, but it keeps casual/accidental
+   visitors with the link from poking around personal trip data). ---------- */
+function renderLockScreen(){
+  document.getElementById('app').innerHTML = `
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div class="card" style="max-width:340px;width:100%;text-align:center;">
+        <h2 style="margin-top:0;">🔒 Diário de Bordo</h2>
+        <p class="note">Digite a senha para continuar.</p>
+        <input type="password" id="lock-input" placeholder="Senha" style="text-align:center;font-size:16px;" onkeydown="if(event.key==='Enter') tryUnlock()">
+        <div id="lock-msg" class="note" style="margin-top:8px;color:var(--rust);"></div>
+        <button class="btn brass" style="width:100%;margin-top:12px;" onclick="tryUnlock()">Entrar</button>
+      </div>
+    </div>
+  `;
+  setTimeout(()=>{ const el=document.getElementById('lock-input'); if(el) el.focus(); }, 50);
+}
+function tryUnlock(){
+  const val = document.getElementById('lock-input').value;
+  if(val === appLockPin) render();
+  else document.getElementById('lock-msg').textContent = 'Senha incorreta.';
+}
+function openLockSettingsModal(){
+  document.getElementById('modal-root').innerHTML = `
+  <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <h2>🔒 Proteção por senha</h2>
+      <div class="note" style="margin-bottom:12px;">Isso adiciona uma tela de senha simples antes de abrir o app neste navegador — útil para afastar quem tiver o link por acidente ou curiosidade, mas não é uma segurança de verdade (o código roda todo no seu navegador). Combinado com a página não aparecer no Google, já fica bem difícil alguém encontrar ou abrir isso sem querer.</div>
+      ${appLockPin ? `
+        <div class="field"><label>Senha atual</label><input type="password" id="lock-current"></div>
+        <div class="field"><label>Nova senha (deixe em branco para remover a proteção)</label><input type="password" id="lock-new"></div>
+      ` : `
+        <div class="field"><label>Criar uma senha</label><input type="password" id="lock-new"></div>
+      `}
+      <div id="lock-settings-msg" class="note" style="color:var(--rust);"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+        <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn brass" onclick="saveLockSettings()">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function saveLockSettings(){
+  const msg = document.getElementById('lock-settings-msg');
+  if(appLockPin){
+    const current = document.getElementById('lock-current').value;
+    if(current !== appLockPin){ msg.textContent = 'Senha atual incorreta.'; return; }
+  }
+  const newPin = document.getElementById('lock-new').value;
+  if(!newPin){
+    appLockPin = null;
+    await storDelete('app-lock-pin');
+    showToast('Proteção por senha removida.', false);
+  } else {
+    appLockPin = newPin;
+    await storSet('app-lock-pin', newPin);
+    showToast('🔒 Senha definida!', false);
+  }
+  closeModal();
+}
 
 /* ---------- Customizable color theme ---------- */
 const DEFAULT_THEME = { ink:'#1F2E45', cream:'#F6EFE2', brass:'#C08A3E', teal:'#2F6B69', rust:'#9C4A2E', fontDisplay:'fraunces', fontBody:'inter' };
@@ -1249,6 +1313,7 @@ function render(){
         <div class="brand"><span class="mark">🧭 Diário de Bordo</span><span class="tag">Planejador de viagem</span></div>
         <div style="display:flex;align-items:center;gap:10px;">
           <button class="btn ghost sm" onclick="openThemeModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">🎨 Aparência</button>
+          <button class="btn ghost sm" onclick="openLockSettingsModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">🔒</button>
           <button class="btn ghost sm" onclick="openBackupModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">💾 Backup</button>
         </div>
       </div>
@@ -1273,6 +1338,7 @@ function render(){
       <div style="display:flex;align-items:center;gap:14px;">
         <div class="stat">${tripsIndex.length} viagem${tripsIndex.length>1?'ns':''} salva${tripsIndex.length>1?'s':''}</div>
         <button class="btn ghost sm" onclick="openThemeModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">🎨 Aparência</button>
+          <button class="btn ghost sm" onclick="openLockSettingsModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">🔒</button>
         <button class="btn ghost sm" onclick="openBackupModal()" style="color:var(--cream);border-color:rgba(246,239,226,0.4);">💾 Backup</button>
       </div>
     </div>
