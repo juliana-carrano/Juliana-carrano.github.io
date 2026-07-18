@@ -1,4 +1,4 @@
-[index.html](https://github.com/user-attachments/files/30143167/index.html)
+[index (2).html](https://github.com/user-attachments/files/30152509/index.2.html)
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -397,27 +397,84 @@ function showToast(msg, isError){
   window.__toastTimer = setTimeout(()=>{ t.style.display='none'; }, 4500);
 }
 
-/* ---------- Storage helpers ---------- */
+/* ---------- Storage helpers ----------
+   Backed by IndexedDB — a standard browser API that works anywhere (unlike the
+   Claude-artifact-specific window.storage bridge, which only exists inside the
+   Claude.ai preview and silently does nothing once the file is hosted elsewhere,
+   e.g. on GitHub Pages or added to an iPhone's home screen). Falls back to
+   localStorage if IndexedDB is unavailable for some reason (very old browsers,
+   some strict private-browsing modes), so saving still works either way. */
+let __dbPromise = null;
+function openDb(){
+  if(__dbPromise) return __dbPromise;
+  __dbPromise = new Promise((resolve,reject)=>{
+    if(!window.indexedDB){ reject(new Error('IndexedDB indisponível')); return; }
+    const req = indexedDB.open('diario-de-bordo-db', 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore('kv', {keyPath:'key'}); };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+  return __dbPromise;
+}
+let __memoryStore = {}; // último recurso: mantém os dados só durante a sessão atual
+let __usingMemoryFallback = false;
 async function storGet(key){
   try{
-    const r = await window.storage.get(key, false);
-    return r ? JSON.parse(r.value) : null;
-  }catch(e){ return null; }
+    const db = await openDb();
+    return await new Promise((resolve,reject)=>{
+      const tx = db.transaction('kv','readonly');
+      const req = tx.objectStore('kv').get(key);
+      req.onsuccess = ()=>resolve(req.result ? JSON.parse(req.result.value) : null);
+      req.onerror = ()=>reject(req.error);
+    });
+  }catch(e){
+    // Fallback para localStorage se o IndexedDB não estiver disponível
+    try{
+      const v = localStorage.getItem('dbf:'+key);
+      return v ? JSON.parse(v) : (key in __memoryStore ? __memoryStore[key] : null);
+    }
+    catch(e2){ return key in __memoryStore ? __memoryStore[key] : null; }
+  }
 }
 async function storSet(key, value){
-  for(let attempt=0; attempt<2; attempt++){
+  try{
+    const db = await openDb();
+    await new Promise((resolve,reject)=>{
+      const tx = db.transaction('kv','readwrite');
+      tx.objectStore('kv').put({key, value: JSON.stringify(value)});
+      tx.oncomplete = ()=>resolve();
+      tx.onerror = ()=>reject(tx.error);
+    });
+    return true;
+  }catch(e){
+    console.error('storSet (IndexedDB) falhou, tentando localStorage', e);
     try{
-      await window.storage.set(key, JSON.stringify(value), false);
+      localStorage.setItem('dbf:'+key, JSON.stringify(value));
       return true;
-    }catch(e){
-      console.error('storage set failed (tentativa '+(attempt+1)+')', e);
-      if(attempt===0) await new Promise(r=>setTimeout(r,500));
+    }catch(e2){
+      console.error('storSet (localStorage) também falhou — usando memória (não sobrevive a fechar a aba)', e2);
+      __memoryStore[key] = value;
+      if(!__usingMemoryFallback){
+        __usingMemoryFallback = true;
+        showToast('⚠️ Seu navegador está bloqueando o armazenamento nesta aba, então nada vai persistir depois de fechá-la. Isso costuma acontecer em navegação privada/anônima, ou ao abrir o link de dentro de outro app (Instagram, WhatsApp, etc.) em vez do Safari/Chrome direto.', true);
+      }
+      return true; // evita repetir o aviso genérico a cada ação; o aviso específico já foi mostrado
     }
   }
-  return false;
 }
 async function storDelete(key){
-  try{ await window.storage.delete(key, false); }catch(e){}
+  try{
+    const db = await openDb();
+    await new Promise((resolve,reject)=>{
+      const tx = db.transaction('kv','readwrite');
+      tx.objectStore('kv').delete(key);
+      tx.oncomplete = ()=>resolve();
+      tx.onerror = ()=>reject(tx.error);
+    });
+  }catch(e){
+    try{ localStorage.removeItem('dbf:'+key); }catch(e2){}
+    delete __memoryStore[key];
+  }
 }
 
 function uid(){ return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
