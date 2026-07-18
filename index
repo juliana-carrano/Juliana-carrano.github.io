@@ -415,6 +415,8 @@ function openDb(){
   });
   return __dbPromise;
 }
+let __memoryStore = {}; // último recurso: mantém os dados só durante a sessão atual
+let __usingMemoryFallback = false;
 async function storGet(key){
   try{
     const db = await openDb();
@@ -426,8 +428,11 @@ async function storGet(key){
     });
   }catch(e){
     // Fallback para localStorage se o IndexedDB não estiver disponível
-    try{ const v = localStorage.getItem('dbf:'+key); return v ? JSON.parse(v) : null; }
-    catch(e2){ return null; }
+    try{
+      const v = localStorage.getItem('dbf:'+key);
+      return v ? JSON.parse(v) : (key in __memoryStore ? __memoryStore[key] : null);
+    }
+    catch(e2){ return key in __memoryStore ? __memoryStore[key] : null; }
   }
 }
 async function storSet(key, value){
@@ -442,8 +447,18 @@ async function storSet(key, value){
     return true;
   }catch(e){
     console.error('storSet (IndexedDB) falhou, tentando localStorage', e);
-    try{ localStorage.setItem('dbf:'+key, JSON.stringify(value)); return true; }
-    catch(e2){ console.error('storSet (localStorage) também falhou', e2); return false; }
+    try{
+      localStorage.setItem('dbf:'+key, JSON.stringify(value));
+      return true;
+    }catch(e2){
+      console.error('storSet (localStorage) também falhou — usando memória (não sobrevive a fechar a aba)', e2);
+      __memoryStore[key] = value;
+      if(!__usingMemoryFallback){
+        __usingMemoryFallback = true;
+        showToast('⚠️ Seu navegador está bloqueando o armazenamento nesta aba, então nada vai persistir depois de fechá-la. Isso costuma acontecer em navegação privada/anônima, ou ao abrir o link de dentro de outro app (Instagram, WhatsApp, etc.) em vez do Safari/Chrome direto.', true);
+      }
+      return true; // evita repetir o aviso genérico a cada ação; o aviso específico já foi mostrado
+    }
   }
 }
 async function storDelete(key){
@@ -455,7 +470,10 @@ async function storDelete(key){
       tx.oncomplete = ()=>resolve();
       tx.onerror = ()=>reject(tx.error);
     });
-  }catch(e){ try{ localStorage.removeItem('dbf:'+key); }catch(e2){} }
+  }catch(e){
+    try{ localStorage.removeItem('dbf:'+key); }catch(e2){}
+    delete __memoryStore[key];
+  }
 }
 
 function uid(){ return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
